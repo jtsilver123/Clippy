@@ -46,22 +46,30 @@ directly anymore, so Gumroad is the workaround.
 8. Scroll down and enable **Generate a license key for each buyer**. THIS
    IS REQUIRED — without it Gumroad won't email a key.
 9. Click **Publish**.
-10. Copy the product permalink — it's the last part of the product URL.
-    For example if your URL is `https://gumroad.com/l/clippy-chrome`,
-    your permalink is `clippy-chrome`.
+10. Copy two things from the published product page:
+    - **Product page URL** — looks like
+      `https://yourname.gumroad.com/l/something`. You'll paste this as
+      the buy URL.
+    - **Product ID** — open the product → Settings → "Show advanced
+      settings" → copy the **Product ID**. It's a base64 string ending
+      in `==`, for example `kfdfheAnlmG1qTakDI7QBg==`. Gumroad's
+      verification API requires this exact id (not the permalink), so
+      you have to grab it manually.
 
 ---
 
-## 3. Plug the Gumroad permalink into Clippy (1 minute)
+## 3. Plug the Gumroad product into Clippy (1 minute)
 
-Open `extension/config.js` in any text editor. Find this line near the
-top:
+Open `extension/config.js` in any text editor. Find these two lines near
+the top:
 
 ```js
-export const GUMROAD_PRODUCT_PERMALINK = "REPLACE_WITH_YOUR_GUMROAD_PERMALINK";
+export const GUMROAD_PRODUCT_ID = "kfdfheAnlmG1qTakDI7QBg==";
+export const GUMROAD_BUY_URL = "https://silverstream421.gumroad.com/l/snixl";
 ```
 
-Replace the placeholder with the permalink from step 2. Save.
+Replace `GUMROAD_PRODUCT_ID` with the Product ID from step 2 and
+`GUMROAD_BUY_URL` with your product page URL. Save.
 
 Then rebuild the ZIP so the Web Store submission picks up the change:
 

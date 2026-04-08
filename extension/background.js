@@ -13,7 +13,7 @@
 // that work lives in the content script where browser APIs like
 // SpeechRecognition and speechSynthesis are available.
 
-import { GUMROAD_PRODUCT_PERMALINK } from "./config.js";
+import { GUMROAD_PRODUCT_ID } from "./config.js";
 import { streamClaudeResponse } from "./lib/claude.js";
 import { verifyGumroadLicenseKey } from "./lib/gumroad.js";
 import { CLIPPY_VOICE_SYSTEM_PROMPT } from "./lib/prompt.js";
@@ -179,7 +179,7 @@ async function runClaudeTurn(incomingMessage, sender) {
 
 async function runLicenseVerification(incomingMessage) {
   const verificationResult = await verifyGumroadLicenseKey({
-    productPermalink: GUMROAD_PRODUCT_PERMALINK,
+    productId: GUMROAD_PRODUCT_ID,
     licenseKey: incomingMessage.licenseKey,
   });
 

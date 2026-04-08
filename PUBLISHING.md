@@ -48,31 +48,31 @@ touch their API keys, and you never pay for their Claude usage.**
 Your product now has a public URL that looks like this:
 
 ```
-https://gumroad.com/l/something
+https://yourname.gumroad.com/l/something
 ```
 
-The bit at the end (`something`) is your **permalink**. Write it down —
-you'll need it in Step 2.
+You also need your **Product ID**, which is different from the URL.
+Open the product on Gumroad → Settings → click **Show advanced
+settings** → copy the value labeled **Product ID**. It looks like a
+base64 string ending in `==`, for example `kfdfheAnlmG1qTakDI7QBg==`.
+You need this because Gumroad's license verification API requires the
+Product ID, not the URL slug. Write down both the URL and the Product
+ID — you'll need them in Step 2.
 
-## Step 2: Plug your Gumroad permalink into Clippy
+## Step 2: Plug your Gumroad product into Clippy
 
 1. Open `extension/config.js` in any text editor (even Notepad or TextEdit
    is fine).
-2. Find this line near the top:
+2. Find these two lines near the top:
 
    ```js
-   export const GUMROAD_PRODUCT_PERMALINK = "REPLACE_WITH_YOUR_GUMROAD_PERMALINK";
+   export const GUMROAD_PRODUCT_ID = "kfdfheAnlmG1qTakDI7QBg==";
+   export const GUMROAD_BUY_URL = "https://silverstream421.gumroad.com/l/snixl";
    ```
 
-3. Replace `REPLACE_WITH_YOUR_GUMROAD_PERMALINK` with the permalink from
-   Step 1. For example, if your Gumroad URL is
-   `https://gumroad.com/l/clippy-chrome`, your line becomes:
-
-   ```js
-   export const GUMROAD_PRODUCT_PERMALINK = "clippy-chrome";
-   ```
-
-4. Save the file. That's the only code change you need to make.
+3. Replace `GUMROAD_PRODUCT_ID` with the Product ID you copied in Step 1.
+4. Replace `GUMROAD_BUY_URL` with your full product page URL.
+5. Save the file. That's the only code change you need to make.
 
 ## Step 3: Test Clippy locally before publishing
 
@@ -161,9 +161,14 @@ When you want to ship an update:
 ## If something goes wrong
 
 - **"Couldn't reach Gumroad"** in the popup: you're offline, or you typed
-  the permalink wrong. Double-check `extension/config.js`.
-- **"License key not accepted"**: the license was refunded, the product
-  permalink doesn't match, or the buyer copy-pasted with extra spaces.
+  the Product ID wrong. Double-check `extension/config.js`.
+- **"License key not accepted"**: the license was refunded, the
+  Product ID doesn't match the product the key was bought from, or the
+  buyer copy-pasted with extra spaces.
+- **"The 'product_id' parameter is required"**: you used a permalink
+  instead of the Product ID. Open your Gumroad product → Settings →
+  Show advanced settings → copy the Product ID and paste it into
+  `GUMROAD_PRODUCT_ID` in `extension/config.js`.
 - **"Speech recognition error: not-allowed"**: the user hasn't granted
   microphone permission to Chrome. Open `chrome://settings/content/microphone`.
 - **The cursor doesn't move**: the Claude response didn't include a

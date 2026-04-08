@@ -2,7 +2,7 @@
 //
 // Why Gumroad: it's a zero-backend way to charge $1 for an extension. You
 // create a product on Gumroad, enable license keys, and paste the product
-// permalink into config.js. The user buys the product, Gumroad emails them a
+// id into config.js. The user buys the product, Gumroad emails them a
 // license key, they paste it into Clippy's popup, and the extension calls
 // Gumroad's public verify endpoint to confirm it's real.
 //
@@ -18,8 +18,8 @@ const GUMROAD_VERIFY_URL = "https://api.gumroad.com/v2/licenses/verify";
  * (for example, when Clippy starts up) don't inflate the Gumroad uses
  * counter.
  */
-export async function verifyGumroadLicenseKey({ productPermalink, licenseKey }) {
-  if (!productPermalink || productPermalink === "REPLACE_WITH_YOUR_GUMROAD_PERMALINK") {
+export async function verifyGumroadLicenseKey({ productId, licenseKey }) {
+  if (!productId || productId === "REPLACE_WITH_YOUR_GUMROAD_PRODUCT_ID") {
     return {
       ok: false,
       reason: "Clippy hasn't been configured with a Gumroad product yet. See PUBLISHING.md.",
@@ -31,7 +31,7 @@ export async function verifyGumroadLicenseKey({ productPermalink, licenseKey }) 
   }
 
   const requestBodyForm = new URLSearchParams();
-  requestBodyForm.set("product_permalink", productPermalink);
+  requestBodyForm.set("product_id", productId);
   requestBodyForm.set("license_key", licenseKey.trim());
   requestBodyForm.set("increment_uses_count", "false");
 

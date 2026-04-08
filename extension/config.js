@@ -1,18 +1,22 @@
 // Clippy configuration.
 //
 // NON-CODER SETUP:
-// Change GUMROAD_PRODUCT_PERMALINK to the permalink of the $1 product you
-// created on Gumroad. The permalink is the short string in the product URL
-// (for example, the "clippy" in https://gumroad.com/l/clippy).
+// You only need to change GUMROAD_PRODUCT_ID and GUMROAD_BUY_URL below.
+//
+//   - GUMROAD_PRODUCT_ID is the unique id Gumroad assigns to your product.
+//     Find it on Gumroad → your product → Settings → "Show advanced
+//     settings" → "Product ID". It looks like a base64 string ending in
+//     "==", for example "kfdfheAnlmG1qTakDI7QBg==".
+//
+//   - GUMROAD_BUY_URL is the public product page where buyers complete the
+//     $1 purchase. It's the URL of your product on Gumroad.
 //
 // See PUBLISHING.md for step-by-step instructions on creating the Gumroad
-// product and filling in this field.
+// product and filling in these fields.
 
-export const GUMROAD_PRODUCT_PERMALINK = "snixl";
+export const GUMROAD_PRODUCT_ID = "kfdfheAnlmG1qTakDI7QBg==";
 
-// Where to send users to buy a license. Change nothing here unless you know
-// what you're doing — the code builds the buy URL from the permalink above.
-export const GUMROAD_BUY_URL = `https://silverstream421.gumroad.com/l/${GUMROAD_PRODUCT_PERMALINK}`;
+export const GUMROAD_BUY_URL = "https://silverstream421.gumroad.com/l/snixl";
 
 // Anthropic models the user can choose between. Keep these in sync with the
 // picker in popup.html. Defaults to the fastest, cheapest capable model.

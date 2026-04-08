@@ -5,7 +5,7 @@
 // via lib/storage.js; license verification is delegated to the background
 // service worker so the verification logic lives in exactly one place.
 
-import { CLAUDE_MODELS, GUMROAD_BUY_URL, GUMROAD_PRODUCT_PERMALINK } from "./config.js";
+import { CLAUDE_MODELS, GUMROAD_BUY_URL, GUMROAD_PRODUCT_ID } from "./config.js";
 import {
   loadClippySettings,
   resetAllClippySettings,
@@ -43,7 +43,7 @@ function populateModelPicker() {
 }
 
 function updateBuyLicenseLink() {
-  if (GUMROAD_PRODUCT_PERMALINK === "REPLACE_WITH_YOUR_GUMROAD_PERMALINK") {
+  if (GUMROAD_PRODUCT_ID === "REPLACE_WITH_YOUR_GUMROAD_PRODUCT_ID") {
     buyLicenseLinkElement.href = "https://gumroad.com";
     buyLicenseLinkElement.textContent = "Configure Gumroad";
     licenseHelpTextElement.textContent =
