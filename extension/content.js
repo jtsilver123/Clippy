@@ -296,25 +296,11 @@
     bubbleContentElement.appendChild(errorNode);
   }
 
-  // Animate the cursor to a point in the page viewport and show a brief
-  // highlight ring. `screenshotXInPixels` and `screenshotYInPixels` are in
-  // the screenshot's coordinate space; captureVisibleTab captures the
-  // visible viewport at devicePixelRatio so we divide to map back to CSS
-  // viewport pixels.
-  function flyCursorToScreenshotCoordinate({
-    screenshotXInPixels,
-    screenshotYInPixels,
-    screenshotWidthInPixels,
-    screenshotHeightInPixels,
-  }) {
-    const horizontalScaleFactor = window.innerWidth / screenshotWidthInPixels;
-    const verticalScaleFactor = window.innerHeight / screenshotHeightInPixels;
-    const viewportXInPixels = Math.round(screenshotXInPixels * horizontalScaleFactor);
-    const viewportYInPixels = Math.round(screenshotYInPixels * verticalScaleFactor);
-
+  // Animate the cursor to a viewport-pixel coordinate and show a brief
+  // highlight ring at the target.
+  function flyCursorToViewportCoordinate(viewportXInPixels, viewportYInPixels) {
     setCursorAndBubblePosition(viewportXInPixels, viewportYInPixels);
 
-    // Pulse the highlight ring at the target.
     elementHighlightElement.style.left = `${viewportXInPixels}px`;
     elementHighlightElement.style.top = `${viewportYInPixels}px`;
     elementHighlightElement.classList.remove("clippy-visible");
@@ -325,6 +311,196 @@
     setTimeout(() => {
       elementHighlightElement.classList.remove("clippy-visible");
     }, 1800);
+  }
+
+  // Convert a (screenshot pixel space) coordinate from the model into
+  // viewport CSS pixels. captureVisibleTab returns a PNG sized to the
+  // visible viewport multiplied by devicePixelRatio, so the linear scale
+  // factor between screenshot pixels and viewport pixels is
+  // window.innerWidth / screenshotWidthInPixels.
+  function mapScreenshotCoordinateToViewportCoordinate(
+    screenshotXInPixels,
+    screenshotYInPixels,
+    screenshotWidthInPixels,
+    screenshotHeightInPixels
+  ) {
+    const horizontalScaleFactor = window.innerWidth / screenshotWidthInPixels;
+    const verticalScaleFactor = window.innerHeight / screenshotHeightInPixels;
+    return {
+      viewportXInPixels: Math.round(screenshotXInPixels * horizontalScaleFactor),
+      viewportYInPixels: Math.round(screenshotYInPixels * verticalScaleFactor),
+    };
+  }
+
+  // ----- DOM-based pointing -------------------------------------------
+  //
+  // Vision LLMs (Claude, Gemini, GPT-4o, etc.) are bad at outputting
+  // precise pixel coordinates from screenshots. They can correctly
+  // identify the right element ("the Dark radio in the appearance
+  // panel"), but the integer coordinates they hand back are routinely off
+  // by hundreds of pixels. So instead of blindly trusting their pixels,
+  // we take the LABEL out of the [POINT:x,y:label] tag, find the matching
+  // real DOM element on the page, and animate the cursor to its actual
+  // bounding rect. The model coordinate is kept as a "hint" so that when
+  // a label matches multiple elements (e.g. several "Read more" links),
+  // we can pick the candidate closest to where the model thought the
+  // element was.
+
+  const MIN_DOM_LABEL_MATCH_SCORE = 35;
+
+  // Selector for elements that are typically interactive or visually
+  // identifiable. We deliberately don't query "*" because then a label
+  // like "search" would match every paragraph that mentions the word.
+  const POINTABLE_ELEMENT_SELECTOR = [
+    "button",
+    "a[href]",
+    "input",
+    "select",
+    "textarea",
+    "summary",
+    "label",
+    '[role="button"]',
+    '[role="link"]',
+    '[role="tab"]',
+    '[role="menuitem"]',
+    '[role="checkbox"]',
+    '[role="radio"]',
+    '[role="switch"]',
+    '[role="searchbox"]',
+    '[role="combobox"]',
+    "[aria-label]",
+    "[placeholder]",
+    "[title]",
+    "[contenteditable='true']",
+  ].join(", ");
+
+  function findBestDomElementForLabel(rawLabelText, optionalHintViewportCoordinate) {
+    if (!rawLabelText) return null;
+    const normalizedLabel = rawLabelText.toLowerCase().trim();
+    if (!normalizedLabel) return null;
+
+    const candidateElements = Array.from(document.querySelectorAll(POINTABLE_ELEMENT_SELECTOR));
+
+    const scoredCandidates = [];
+
+    for (const candidateElement of candidateElements) {
+      const candidateRect = candidateElement.getBoundingClientRect();
+      // Skip elements that are off-screen, hidden, or zero-sized.
+      if (
+        candidateRect.width < 2 ||
+        candidateRect.height < 2 ||
+        candidateRect.right < 0 ||
+        candidateRect.bottom < 0 ||
+        candidateRect.left > window.innerWidth ||
+        candidateRect.top > window.innerHeight
+      ) {
+        continue;
+      }
+      // Skip elements that are visually hidden via CSS.
+      const computedStyle = window.getComputedStyle(candidateElement);
+      if (
+        computedStyle.visibility === "hidden" ||
+        computedStyle.display === "none" ||
+        parseFloat(computedStyle.opacity) < 0.1
+      ) {
+        continue;
+      }
+
+      const matchScore = scoreCandidateElementAgainstLabel(candidateElement, normalizedLabel);
+      if (matchScore >= MIN_DOM_LABEL_MATCH_SCORE) {
+        scoredCandidates.push({
+          element: candidateElement,
+          rect: candidateRect,
+          score: matchScore,
+        });
+      }
+    }
+
+    if (scoredCandidates.length === 0) return null;
+
+    // Take the highest score band. If multiple candidates are within 5
+    // points of the top score, prefer the one closest to the model's
+    // pixel hint (when we have one). This combines the model's spatial
+    // reasoning with the DOM's positional accuracy.
+    scoredCandidates.sort((a, b) => b.score - a.score);
+    const topScore = scoredCandidates[0].score;
+    const tiedTopCandidates = scoredCandidates.filter(
+      (candidate) => candidate.score >= topScore - 5
+    );
+
+    let chosenCandidate = tiedTopCandidates[0];
+    if (tiedTopCandidates.length > 1 && optionalHintViewportCoordinate) {
+      let smallestDistanceToHint = Infinity;
+      for (const candidate of tiedTopCandidates) {
+        const candidateCenterX = candidate.rect.left + candidate.rect.width / 2;
+        const candidateCenterY = candidate.rect.top + candidate.rect.height / 2;
+        const distanceToHint = Math.hypot(
+          candidateCenterX - optionalHintViewportCoordinate.viewportXInPixels,
+          candidateCenterY - optionalHintViewportCoordinate.viewportYInPixels
+        );
+        if (distanceToHint < smallestDistanceToHint) {
+          smallestDistanceToHint = distanceToHint;
+          chosenCandidate = candidate;
+        }
+      }
+    }
+
+    return chosenCandidate;
+  }
+
+  // Score a single candidate against a normalized label. Higher = better.
+  // Looks at text content, aria-label, placeholder, title, value, and
+  // alt text. Exact matches score the highest, then substring matches,
+  // then token overlap.
+  function scoreCandidateElementAgainstLabel(candidateElement, normalizedLabel) {
+    const candidateTextSources = [
+      (candidateElement.textContent || "").toLowerCase().trim(),
+      (candidateElement.getAttribute("aria-label") || "").toLowerCase().trim(),
+      (candidateElement.getAttribute("placeholder") || "").toLowerCase().trim(),
+      (candidateElement.getAttribute("title") || "").toLowerCase().trim(),
+      (candidateElement.getAttribute("alt") || "").toLowerCase().trim(),
+      (candidateElement.value || "").toString().toLowerCase().trim(),
+      (candidateElement.getAttribute("name") || "").toLowerCase().trim(),
+    ];
+
+    let bestSourceScore = 0;
+    const labelTokens = normalizedLabel.split(/\s+/).filter((token) => token.length >= 2);
+
+    for (const sourceText of candidateTextSources) {
+      if (!sourceText) continue;
+
+      // Compress whitespace inside the source text — DOM textContent often
+      // contains newlines and indentation that mess up substring checks.
+      const compactSourceText = sourceText.replace(/\s+/g, " ").trim();
+
+      // Exact match: 100.
+      if (compactSourceText === normalizedLabel) {
+        bestSourceScore = Math.max(bestSourceScore, 100);
+        continue;
+      }
+      // Source contains the label: 60-90 depending on tightness.
+      if (compactSourceText.includes(normalizedLabel)) {
+        const lengthRatio = normalizedLabel.length / compactSourceText.length;
+        bestSourceScore = Math.max(bestSourceScore, 60 + Math.round(lengthRatio * 30));
+        continue;
+      }
+      // Label contains the source (e.g. label "search bar" vs source "search"): 50.
+      if (compactSourceText.length >= 3 && normalizedLabel.includes(compactSourceText)) {
+        bestSourceScore = Math.max(bestSourceScore, 50);
+        continue;
+      }
+      // Token overlap: 0-50 based on how many label tokens appear in the source.
+      if (labelTokens.length > 0) {
+        const sourceTokens = compactSourceText.split(/\s+/);
+        const sharedTokenCount = labelTokens.filter((token) => sourceTokens.includes(token)).length;
+        if (sharedTokenCount > 0) {
+          const tokenOverlapRatio = sharedTokenCount / labelTokens.length;
+          bestSourceScore = Math.max(bestSourceScore, Math.round(50 * tokenOverlapRatio));
+        }
+      }
+    }
+
+    return bestSourceScore;
   }
 
   // ----- Speech recognition (push-to-talk) ------------------------------
@@ -531,21 +707,63 @@
       speakTextWithBrowserTextToSpeech(spokenText);
     }
 
-    if (pointingCoordinate) {
-      flyCursorToScreenshotCoordinate({
-        screenshotXInPixels: pointingCoordinate.x,
-        screenshotYInPixels: pointingCoordinate.y,
-        screenshotWidthInPixels,
-        screenshotHeightInPixels,
-      });
+    // Decide where the cursor should fly. Two information sources:
+    //   - the pixel coordinate the model returned (low accuracy — vision
+    //     LLMs are bad at pointing in pixel space)
+    //   - the natural-language label the model attached, which we can use
+    //     to find the *real* DOM element on the page (high accuracy)
+    //
+    // Strategy: try DOM matching first using the label. If we find a
+    // matching element, use its actual bounding rect. Otherwise fall back
+    // to the model's pixel coordinate.
+    let viewportPointingCoordinate = null;
+    let pointingMethod = "none";
+
+    const modelHintViewportCoordinate = pointingCoordinate
+      ? mapScreenshotCoordinateToViewportCoordinate(
+          pointingCoordinate.x,
+          pointingCoordinate.y,
+          screenshotWidthInPixels,
+          screenshotHeightInPixels
+        )
+      : null;
+
+    if (pointingLabel && pointingLabel !== "none") {
+      const matchedDomCandidate = findBestDomElementForLabel(
+        pointingLabel,
+        modelHintViewportCoordinate
+      );
+      if (matchedDomCandidate) {
+        viewportPointingCoordinate = {
+          viewportXInPixels: Math.round(
+            matchedDomCandidate.rect.left + matchedDomCandidate.rect.width / 2
+          ),
+          viewportYInPixels: Math.round(
+            matchedDomCandidate.rect.top + matchedDomCandidate.rect.height / 2
+          ),
+        };
+        pointingMethod = "dom";
+      }
+    }
+
+    if (!viewportPointingCoordinate && modelHintViewportCoordinate) {
+      viewportPointingCoordinate = modelHintViewportCoordinate;
+      pointingMethod = "model-pixel";
+    }
+
+    if (viewportPointingCoordinate) {
+      flyCursorToViewportCoordinate(
+        viewportPointingCoordinate.viewportXInPixels,
+        viewportPointingCoordinate.viewportYInPixels
+      );
       // Keep overlay around longer when we're pointing so the user can see it.
       scheduleOverlayAutoHide(9000);
     } else {
       scheduleOverlayAutoHide(7000);
     }
 
-    // Ignore "pointing to nothing" labels for analytics / logs.
-    void pointingLabel;
+    // Useful for debugging in the page console.
+    void pointingMethod;
   }
 
   function speakTextWithBrowserTextToSpeech(textToSpeak) {
