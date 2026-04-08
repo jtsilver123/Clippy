@@ -8,11 +8,11 @@
 // See PUBLISHING.md for step-by-step instructions on creating the Gumroad
 // product and filling in this field.
 
-export const GUMROAD_PRODUCT_PERMALINK = "REPLACE_WITH_YOUR_GUMROAD_PERMALINK";
+export const GUMROAD_PRODUCT_PERMALINK = "snixl";
 
 // Where to send users to buy a license. Change nothing here unless you know
 // what you're doing — the code builds the buy URL from the permalink above.
-export const GUMROAD_BUY_URL = `https://gumroad.com/l/${GUMROAD_PRODUCT_PERMALINK}`;
+export const GUMROAD_BUY_URL = `https://silverstream421.gumroad.com/l/${GUMROAD_PRODUCT_PERMALINK}`;
 
 // Anthropic models the user can choose between. Keep these in sync with the
 // picker in popup.html. Defaults to the fastest, cheapest capable model.
