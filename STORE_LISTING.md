@@ -52,7 +52,7 @@ Clippy is a friendly AI buddy that lives next to your cursor inside Chrome. Pres
 Think of it as having a teacher sitting next to you while you browse.
 
 HOW IT WORKS
-• Press Ctrl + Shift + Space (or Cmd + Shift + Space on Mac) on any web page.
+• Press Ctrl + Shift + E (or Cmd + Shift + E on Mac) on any web page.
 • Talk to Clippy. Ask what something on the page means, how to do a thing, where a button is, anything.
 • Clippy answers out loud using Claude and the browser's built-in text-to-speech.
 • If the answer is about something on the page, Clippy flies a blue cursor over to it and highlights it.

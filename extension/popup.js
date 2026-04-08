@@ -1,10 +1,10 @@
 // Clippy popup controller.
 //
-// Handles the setup UI: AI provider selection, API key entry, license
-// activation, model selection, and reset. All persistent state lives in
-// chrome.storage via lib/storage.js; license verification is delegated to
-// the background service worker so the verification logic lives in
-// exactly one place.
+// Owns the setup UI: AI provider selection (Anthropic vs Gemini), API key
+// entry, license activation, model selection, and reset. All persistent
+// state lives in chrome.storage via lib/storage.js. License verification
+// is delegated to the background service worker so the verification logic
+// lives in exactly one place.
 
 import {
   CLAUDE_MODELS,
@@ -24,7 +24,8 @@ import {
   saveSelectedLlmProviderId,
 } from "./lib/storage.js";
 
-const providerPickerElement = document.getElementById("clippy-provider-picker");
+const providerCardAnthropicElement = document.getElementById("clippy-provider-card-anthropic");
+const providerCardGeminiElement = document.getElementById("clippy-provider-card-gemini");
 const anthropicSectionElement = document.getElementById("clippy-anthropic-section");
 const anthropicKeyInputElement = document.getElementById("clippy-anthropic-key-input");
 const saveAnthropicKeyButton = document.getElementById("clippy-save-anthropic-key-button");
@@ -35,10 +36,12 @@ const licenseKeyInputElement = document.getElementById("clippy-license-key-input
 const activateLicenseButton = document.getElementById("clippy-activate-license-button");
 const buyLicenseLinkElement = document.getElementById("clippy-buy-license-link");
 const modelPickerElement = document.getElementById("clippy-model-picker");
-const statusSubtitleElement = document.getElementById("clippy-status-subtitle");
+const statusTextElement = document.getElementById("clippy-status-text");
+const statusDotElement = document.getElementById("clippy-status-dot");
 const licenseHelpTextElement = document.getElementById("clippy-license-help-text");
 const resetButton = document.getElementById("clippy-reset-button");
 const shortcutLabelElement = document.getElementById("clippy-shortcut-label");
+const shortcutsLinkElement = document.getElementById("clippy-shortcuts-link");
 
 // ----- Initial render -------------------------------------------------
 
@@ -59,14 +62,14 @@ function updateBuyLicenseLink() {
 
 function updatePlatformAwareShortcutLabel() {
   const isMacPlatform = /Mac|iPhone|iPad|iPod/.test(navigator.platform || "");
-  shortcutLabelElement.textContent = isMacPlatform ? "⌘ + Shift + Space" : "Ctrl + Shift + Space";
+  shortcutLabelElement.textContent = isMacPlatform ? "⌘ + Shift + E" : "Ctrl + Shift + E";
 }
 
 async function renderSettingsFromStorage() {
   const clippySettings = await loadClippySettings();
 
-  providerPickerElement.value = clippySettings.selectedLlmProviderId;
   applyProviderToggleVisibility(clippySettings.selectedLlmProviderId);
+  applyProviderCardActiveState(clippySettings.selectedLlmProviderId);
   populateModelPickerForProvider(clippySettings.selectedLlmProviderId);
 
   if (clippySettings.anthropicApiKey) {
@@ -81,13 +84,19 @@ async function renderSettingsFromStorage() {
 
   modelPickerElement.value = clippySettings.activeModelId;
 
-  renderOverallStatusSubtitle(clippySettings);
+  renderOverallStatus(clippySettings);
 }
 
 function applyProviderToggleVisibility(selectedLlmProviderId) {
   const isUsingGemini = selectedLlmProviderId === LLM_PROVIDER_IDS.GEMINI;
   anthropicSectionElement.hidden = isUsingGemini;
   geminiSectionElement.hidden = !isUsingGemini;
+}
+
+function applyProviderCardActiveState(selectedLlmProviderId) {
+  const isUsingGemini = selectedLlmProviderId === LLM_PROVIDER_IDS.GEMINI;
+  providerCardAnthropicElement.classList.toggle("clippy-provider-card-active", !isUsingGemini);
+  providerCardGeminiElement.classList.toggle("clippy-provider-card-active", isUsingGemini);
 }
 
 function populateModelPickerForProvider(selectedLlmProviderId) {
@@ -103,7 +112,7 @@ function populateModelPickerForProvider(selectedLlmProviderId) {
   }
 }
 
-function renderOverallStatusSubtitle(clippySettings) {
+function renderOverallStatus(clippySettings) {
   const isUsingGemini = clippySettings.selectedLlmProviderId === LLM_PROVIDER_IDS.GEMINI;
   const hasProviderKey = isUsingGemini
     ? !!clippySettings.geminiApiKey
@@ -111,75 +120,87 @@ function renderOverallStatusSubtitle(clippySettings) {
   const hasVerifiedLicense = clippySettings.licenseIsVerified;
 
   if (hasProviderKey && hasVerifiedLicense) {
-    statusSubtitleElement.textContent = "Ready. Press the shortcut and talk.";
-    statusSubtitleElement.className = "clippy-subtitle clippy-subtitle-ok";
+    setStatus("Ready. Press the shortcut and talk.", "ok");
     return;
   }
   if (!hasVerifiedLicense && !hasProviderKey) {
-    statusSubtitleElement.textContent = "Add an API key and activate your license.";
-    statusSubtitleElement.className = "clippy-subtitle clippy-subtitle-warn";
+    setStatus("Add an API key and activate your license to start.", "warn");
     return;
   }
   if (!hasProviderKey) {
-    const providerName = isUsingGemini ? "Google Gemini" : "Anthropic";
-    statusSubtitleElement.textContent = `Add your ${providerName} API key to finish setup.`;
-    statusSubtitleElement.className = "clippy-subtitle clippy-subtitle-warn";
+    const providerName = isUsingGemini ? "Gemini" : "Anthropic";
+    setStatus(`Add your ${providerName} API key to finish setup.`, "warn");
     return;
   }
-  statusSubtitleElement.textContent = "Activate your $1 license to finish setup.";
-  statusSubtitleElement.className = "clippy-subtitle clippy-subtitle-warn";
+  setStatus("Activate your $1 license to finish setup.", "warn");
+}
+
+function setStatus(messageText, statusVariant) {
+  statusTextElement.textContent = messageText;
+  statusDotElement.classList.remove(
+    "clippy-status-dot-ok",
+    "clippy-status-dot-warn",
+    "clippy-status-dot-error"
+  );
+  statusDotElement.classList.add(`clippy-status-dot-${statusVariant}`);
 }
 
 // ----- Event wiring ---------------------------------------------------
 
-providerPickerElement.addEventListener("change", async () => {
-  const newlySelectedProviderId = providerPickerElement.value;
+async function selectProvider(newlySelectedProviderId) {
   await saveSelectedLlmProviderId(newlySelectedProviderId);
   applyProviderToggleVisibility(newlySelectedProviderId);
+  applyProviderCardActiveState(newlySelectedProviderId);
   populateModelPickerForProvider(newlySelectedProviderId);
-  // After repopulating the picker, restore the user's previously chosen
-  // model for the new provider.
   const refreshedSettings = await loadClippySettings();
   modelPickerElement.value = refreshedSettings.activeModelId;
-  renderOverallStatusSubtitle(refreshedSettings);
+  renderOverallStatus(refreshedSettings);
+}
+
+providerCardAnthropicElement.addEventListener("click", () => {
+  selectProvider(LLM_PROVIDER_IDS.ANTHROPIC);
+});
+
+providerCardGeminiElement.addEventListener("click", () => {
+  selectProvider(LLM_PROVIDER_IDS.GEMINI);
 });
 
 saveAnthropicKeyButton.addEventListener("click", async () => {
   const trimmedAnthropicKey = anthropicKeyInputElement.value.trim();
   if (!trimmedAnthropicKey) {
-    flashStatusSubtitleWithMessage("Paste your Anthropic key first.", "error");
+    setStatus("Paste your Anthropic key first.", "error");
     return;
   }
   if (!trimmedAnthropicKey.startsWith("sk-")) {
-    flashStatusSubtitleWithMessage('Anthropic keys should start with "sk-".', "error");
+    setStatus('Anthropic keys should start with "sk-".', "error");
     return;
   }
   await saveAnthropicApiKey(trimmedAnthropicKey);
   flashInputBriefly(anthropicKeyInputElement);
   const refreshedSettings = await loadClippySettings();
-  renderOverallStatusSubtitle(refreshedSettings);
+  renderOverallStatus(refreshedSettings);
 });
 
 saveGeminiKeyButton.addEventListener("click", async () => {
   const trimmedGeminiKey = geminiKeyInputElement.value.trim();
   if (!trimmedGeminiKey) {
-    flashStatusSubtitleWithMessage("Paste your Gemini key first.", "error");
+    setStatus("Paste your Gemini key first.", "error");
     return;
   }
   if (!trimmedGeminiKey.startsWith("AIza")) {
-    flashStatusSubtitleWithMessage('Gemini keys usually start with "AIza".', "error");
+    setStatus('Gemini keys usually start with "AIza".', "error");
     return;
   }
   await saveGeminiApiKey(trimmedGeminiKey);
   flashInputBriefly(geminiKeyInputElement);
   const refreshedSettings = await loadClippySettings();
-  renderOverallStatusSubtitle(refreshedSettings);
+  renderOverallStatus(refreshedSettings);
 });
 
 activateLicenseButton.addEventListener("click", async () => {
   const trimmedLicenseKey = licenseKeyInputElement.value.trim();
   if (!trimmedLicenseKey) {
-    flashStatusSubtitleWithMessage("Paste your license key first.", "error");
+    setStatus("Paste your license key first.", "error");
     return;
   }
 
@@ -203,28 +224,37 @@ activateLicenseButton.addEventListener("click", async () => {
       (verifyResponse && verifyResponse.error) ||
       (verifyResponse && verifyResponse.value && verifyResponse.value.reason) ||
       "Couldn't verify license.";
-    flashStatusSubtitleWithMessage(errorReason, "error");
+    setStatus(errorReason, "error");
     return;
   }
 
   const verificationResult = verifyResponse.value;
   if (verificationResult && verificationResult.ok === true) {
-    flashStatusSubtitleWithMessage("License activated. Clippy is ready.", "ok");
+    setStatus("License activated. Clippy is ready.", "ok");
     const refreshedSettings = await loadClippySettings();
-    renderOverallStatusSubtitle(refreshedSettings);
+    renderOverallStatus(refreshedSettings);
   } else {
     const reason = (verificationResult && verificationResult.reason) || "License not valid.";
-    flashStatusSubtitleWithMessage(reason, "error");
+    setStatus(reason, "error");
   }
 });
 
 modelPickerElement.addEventListener("change", async () => {
-  const currentlySelectedProviderId = providerPickerElement.value;
-  if (currentlySelectedProviderId === LLM_PROVIDER_IDS.GEMINI) {
+  // The model picker shows whichever provider is currently active.
+  // Persist to the right per-provider model field.
+  const settingsBeforeChange = await loadClippySettings();
+  if (settingsBeforeChange.selectedLlmProviderId === LLM_PROVIDER_IDS.GEMINI) {
     await saveSelectedGeminiModelId(modelPickerElement.value);
   } else {
     await saveSelectedAnthropicModelId(modelPickerElement.value);
   }
+});
+
+// chrome://* URLs can't be opened from a regular anchor; we have to ask the
+// background to open it as a tab.
+shortcutsLinkElement.addEventListener("click", (clickEvent) => {
+  clickEvent.preventDefault();
+  chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
 });
 
 resetButton.addEventListener("click", async () => {
@@ -237,15 +267,10 @@ resetButton.addEventListener("click", async () => {
   geminiKeyInputElement.value = "";
   licenseKeyInputElement.value = "";
   await renderSettingsFromStorage();
-  flashStatusSubtitleWithMessage("Clippy reset.", "warn");
+  setStatus("Clippy reset.", "warn");
 });
-
-function flashStatusSubtitleWithMessage(messageText, statusVariant) {
-  statusSubtitleElement.textContent = messageText;
-  statusSubtitleElement.className = `clippy-subtitle clippy-subtitle-${statusVariant}`;
-}
 
 function flashInputBriefly(inputElement) {
   inputElement.classList.add("clippy-flash");
-  setTimeout(() => inputElement.classList.remove("clippy-flash"), 400);
+  setTimeout(() => inputElement.classList.remove("clippy-flash"), 420);
 }

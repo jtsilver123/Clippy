@@ -77,7 +77,7 @@ Clippy/
 # 5. Paste your Anthropic API key (https://console.anthropic.com/settings/keys)
 # 6. Paste a valid Gumroad license key for your configured product
 # 7. Open any web page
-# 8. Press Ctrl + Shift + Space and talk
+# 8. Press Ctrl + Shift + E and talk
 ```
 
 If you don't have a Gumroad product set up yet, the "Buy" button won't

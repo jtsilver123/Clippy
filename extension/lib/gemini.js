@@ -99,6 +99,13 @@ export async function streamGeminiResponse({
   let pendingChunkBuffer = "";
   let fullResponseText = "";
 
+  // Track the most recent stop / block reason we see while streaming.
+  // Gemini sometimes returns a non-empty stream that ends in SAFETY or
+  // RECITATION with no actual text. Without surfacing the reason, the
+  // user just sees an empty bubble and assumes Clippy is broken.
+  let lastObservedFinishReason = null;
+  let promptBlockReason = null;
+
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -111,43 +118,84 @@ export async function streamGeminiResponse({
       const rawEventBlock = pendingChunkBuffer.slice(0, eventBoundaryIndex);
       pendingChunkBuffer = pendingChunkBuffer.slice(eventBoundaryIndex + 2);
 
-      const textDelta = extractTextFromGeminiSseEventBlock(rawEventBlock);
-      if (textDelta) {
-        fullResponseText += textDelta;
-        if (onTextDelta) onTextDelta(textDelta);
+      const parsedEvent = parseGeminiSseEventBlock(rawEventBlock);
+      if (!parsedEvent) continue;
+
+      if (parsedEvent.textDelta) {
+        fullResponseText += parsedEvent.textDelta;
+        if (onTextDelta) onTextDelta(parsedEvent.textDelta);
+      }
+      if (parsedEvent.finishReason) {
+        lastObservedFinishReason = parsedEvent.finishReason;
+      }
+      if (parsedEvent.promptBlockReason) {
+        promptBlockReason = parsedEvent.promptBlockReason;
       }
     }
+  }
+
+  // If the stream completed but we got nothing back, surface why.
+  if (!fullResponseText.trim()) {
+    if (promptBlockReason) {
+      throw new Error(
+        `Gemini blocked the request (${promptBlockReason}). Try a different page or question.`
+      );
+    }
+    if (lastObservedFinishReason && lastObservedFinishReason !== "STOP") {
+      throw new Error(
+        `Gemini stopped early (${lastObservedFinishReason}). Try asking again.`
+      );
+    }
+    // Empty body with no diagnostic. Probably a quota or auth issue we
+    // can't see from inside the stream.
+    throw new Error("Gemini returned an empty response. Try asking again.");
   }
 
   return fullResponseText;
 }
 
-// Pull text out of a Gemini SSE event block. Each event looks like:
-//   data: {"candidates":[{"content":{"parts":[{"text":"hello"}],"role":"model"}}]}
-function extractTextFromGeminiSseEventBlock(rawEventBlock) {
+// Pull text + diagnostic fields out of a Gemini SSE event block. Each
+// event looks like:
+//   data: {"candidates":[{"content":{"parts":[{"text":"hello"}],"role":"model"},"finishReason":"STOP"}],"promptFeedback":{"blockReason":"SAFETY"}}
+//
+// Returns { textDelta, finishReason, promptBlockReason } or null if the
+// block held no `data:` payload.
+function parseGeminiSseEventBlock(rawEventBlock) {
   const lines = rawEventBlock.split("\n");
+  let textDelta = "";
+  let finishReason = null;
+  let promptBlockReason = null;
+  let foundAnyDataLine = false;
+
   for (const line of lines) {
     if (!line.startsWith("data:")) continue;
     const jsonPayload = line.slice(5).trim();
     if (!jsonPayload || jsonPayload === "[DONE]") continue;
+    foundAnyDataLine = true;
     try {
       const parsed = JSON.parse(jsonPayload);
       const candidates = parsed.candidates || [];
-      let collectedTextForThisEvent = "";
       for (const candidate of candidates) {
         const parts = (candidate.content && candidate.content.parts) || [];
         for (const part of parts) {
           if (typeof part.text === "string") {
-            collectedTextForThisEvent += part.text;
+            textDelta += part.text;
           }
         }
+        if (candidate.finishReason) {
+          finishReason = candidate.finishReason;
+        }
       }
-      if (collectedTextForThisEvent) return collectedTextForThisEvent;
+      if (parsed.promptFeedback && parsed.promptFeedback.blockReason) {
+        promptBlockReason = parsed.promptFeedback.blockReason;
+      }
     } catch {
       // ignore malformed events
     }
   }
-  return "";
+
+  if (!foundAnyDataLine) return null;
+  return { textDelta, finishReason, promptBlockReason };
 }
 
 // Claude messages have a `content` array of typed blocks. For history we

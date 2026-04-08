@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Clippy — AI Buddy On Your Page",
   "short_name": "Clippy",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "An AI teacher that lives next to your cursor. It sees your tab, talks back, and points at things. Bring your own Anthropic API key.",
   "author": "Clippy",
   "minimum_chrome_version": "116",
@@ -42,10 +42,10 @@
   "commands": {
     "toggle-push-to-talk": {
       "suggested_key": {
-        "default": "Ctrl+Shift+Space",
-        "mac": "Command+Shift+Space"
+        "default": "Ctrl+Shift+E",
+        "mac": "Command+Shift+E"
       },
-      "description": "Hold to talk to Clippy about what's on the page"
+      "description": "Talk to Clippy about what's on the page"
     }
   },
 

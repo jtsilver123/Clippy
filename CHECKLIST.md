@@ -109,7 +109,11 @@ sure it actually works end-to-end.
 7. Paste the Gumroad license key you got in your receipt email.
    Click **Activate**. You should see "License activated."
 8. Open any HTTPS web page (like <https://en.wikipedia.org/wiki/Main_Page>).
-9. Press **Ctrl + Shift + Space** (or **⌘ + Shift + Space** on Mac).
+9. Press **Ctrl + Shift + E** (or **⌘ + Shift + E** on Mac). If nothing
+   happens, open `chrome://extensions/shortcuts` and bind a key manually
+   to "Talk to Clippy about what's on the page" — Chrome occasionally
+   refuses to auto-bind extension shortcuts when other extensions
+   already claim the same key.
 10. Grant microphone permission when Chrome asks.
 11. Talk to Clippy: ask what's on the page, or ask it to point at
     something. Verify you hear a voice, see the bubble update, and see

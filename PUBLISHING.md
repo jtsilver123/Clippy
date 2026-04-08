@@ -86,8 +86,8 @@ ID — you'll need them in Step 2.
    <https://console.anthropic.com/settings/keys>).
 7. Paste your Gumroad license key and click **Activate**. It should say
    "License activated."
-8. Open any web page, press **Ctrl + Shift + Space** (or
-   **⌘ + Shift + Space** on Mac), and talk to Clippy. It should answer out
+8. Open any web page, press **Ctrl + Shift + E** (or
+   **⌘ + Shift + E** on Mac), and talk to Clippy. It should answer out
    loud and, when appropriate, animate a blue cursor toward the thing it's
    pointing at.
 

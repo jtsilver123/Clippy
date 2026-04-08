@@ -457,10 +457,15 @@
     const deltaMessageListener = (incomingMessage) => {
       if (incomingMessage && incomingMessage.kind === "clippy.claudeTextDelta") {
         streamedResponseText += incomingMessage.textDelta;
-        // Strip any in-progress POINT tag from the visible text as it streams.
+        // Strip any in-progress POINT tag from the visible text as it
+        // streams. If the partial response is currently nothing but a
+        // tag, leave the spinner up rather than flashing an empty bubble.
         const { spokenText: visibleStreamingText } =
           parsePointingCoordinatesFromResponse(streamedResponseText);
-        setBubbleToRespondingStateWithText(visibleStreamingText || streamedResponseText);
+        const candidateBubbleText = visibleStreamingText || streamedResponseText.trim();
+        if (candidateBubbleText) {
+          setBubbleToRespondingStateWithText(candidateBubbleText);
+        }
       }
     };
     chrome.runtime.onMessage.addListener(deltaMessageListener);
@@ -487,7 +492,23 @@
     const { spokenText, coordinate: pointingCoordinate, label: pointingLabel } =
       parsePointingCoordinatesFromResponse(fullResponseText);
 
-    setBubbleToRespondingStateWithText(spokenText);
+    // Pick what actually goes into the bubble. Three cases to handle:
+    //   1. We have spoken text → show it.
+    //   2. No spoken text but we DO have a coordinate + label (the model
+    //      replied with just a [POINT:...] tag) → show "pointing at the
+    //      <label>" so the bubble isn't an empty rectangle.
+    //   3. No spoken text and no coordinate (the model returned literally
+    //      nothing, or its response was blocked by safety filters) → show
+    //      a friendly retry prompt instead of leaving the bubble blank.
+    let visibleBubbleText;
+    if (spokenText) {
+      visibleBubbleText = spokenText;
+    } else if (pointingCoordinate && pointingLabel && pointingLabel !== "none") {
+      visibleBubbleText = `pointing at the ${pointingLabel}`;
+    } else {
+      visibleBubbleText = "hmm, no answer came back. try asking again.";
+    }
+    setBubbleToRespondingStateWithText(visibleBubbleText);
 
     // Persist the turn so follow-ups stay in context.
     conversationHistoryMessages.push({
@@ -503,7 +524,12 @@
       conversationHistoryMessages.shift();
     }
 
-    speakTextWithBrowserTextToSpeech(spokenText);
+    // Only speak if we actually have something the model wrote out loud.
+    // The "hmm, no answer" fallback shouldn't be read aloud — it'd be
+    // annoying.
+    if (spokenText) {
+      speakTextWithBrowserTextToSpeech(spokenText);
+    }
 
     if (pointingCoordinate) {
       flyCursorToScreenshotCoordinate({
