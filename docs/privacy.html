@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Clippy Privacy Policy</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 48px 24px 96px;
+        line-height: 1.6;
+        color: #1c1e24;
+        background: #fafafa;
+      }
+      @media (prefers-color-scheme: dark) {
+        body { color: #f6f7fb; background: #0e0f12; }
+        a { color: #7eaefb; }
+        h1, h2 { color: #ffffff; }
+        code { background: #1a1c21; }
+      }
+      h1 { font-size: 32px; margin-bottom: 4px; }
+      h2 { font-size: 20px; margin-top: 36px; }
+      p, li { font-size: 16px; }
+      .updated { color: #888; font-size: 13px; }
+      code {
+        background: #eef0f4;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+      ul { padding-left: 20px; }
+    </style>
+  </head>
+  <body>
+    <h1>Clippy Privacy Policy</h1>
+    <p class="updated">Last updated: April 8, 2026</p>
+
+    <p>
+      Clippy is a Chrome extension that lets you talk to Claude about the
+      web page you're looking at. This page explains exactly what data
+      Clippy touches, where it goes, and what it never does.
+    </p>
+
+    <h2>The short version</h2>
+    <ul>
+      <li>Clippy has no backend. There is no Clippy server.</li>
+      <li>Your Anthropic API key, license key, and settings live in your
+        browser's local storage. They never leave your computer except as
+        described below.</li>
+      <li>Your voice transcript and a screenshot of the current tab are
+        sent directly from your browser to Anthropic so Claude can answer.
+        We never see them.</li>
+      <li>Your license key is sent directly from your browser to Gumroad
+        for verification. We never see it.</li>
+      <li>Clippy does not collect analytics, telemetry, advertising IDs,
+        cookies, or any personal information.</li>
+    </ul>
+
+    <h2>What Clippy stores on your computer</h2>
+    <p>
+      Clippy uses Chrome's <code>chrome.storage.local</code> API to save
+      the following on your local machine:
+    </p>
+    <ul>
+      <li>Your Anthropic API key (so you don't have to paste it every time)</li>
+      <li>Your Gumroad license key</li>
+      <li>Your selected Claude model (Sonnet or Opus)</li>
+      <li>Whether your license has been verified</li>
+    </ul>
+    <p>
+      You can delete all of this at any time by clicking
+      <strong>Reset Clippy</strong> in the extension popup, or by
+      uninstalling the extension.
+    </p>
+
+    <h2>What Clippy sends over the network</h2>
+    <p>
+      Clippy makes network requests to two domains, and only two:
+    </p>
+    <ul>
+      <li>
+        <strong>api.anthropic.com</strong> — when you press the
+        push-to-talk shortcut, Clippy sends the text Claude needs to
+        answer (your spoken transcript), a PNG screenshot of the visible
+        portion of your current tab, and your conversation history on
+        the current page. These requests are authenticated with your own
+        Anthropic API key. Anthropic's privacy policy applies to that
+        traffic. See
+        <a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noreferrer">
+          anthropic.com/legal/privacy</a>.
+      </li>
+      <li>
+        <strong>api.gumroad.com</strong> — when you click
+        <strong>Activate</strong> in the popup, Clippy sends your license
+        key to Gumroad's public license verification endpoint to confirm
+        the key was actually purchased. Gumroad's privacy policy applies
+        to that traffic. See
+        <a href="https://gumroad.com/privacy" target="_blank" rel="noreferrer">
+          gumroad.com/privacy</a>.
+      </li>
+    </ul>
+
+    <h2>What Clippy never does</h2>
+    <ul>
+      <li>Clippy never sends data to a server we operate. We don't have
+        one.</li>
+      <li>Clippy never reads, stores, or transmits the contents of pages
+        you visit unless you actively press the push-to-talk shortcut.
+        At that moment it captures a single PNG of the visible viewport
+        and sends it to Anthropic. It does not capture pages in the
+        background.</li>
+      <li>Clippy never enables the microphone unless you press the
+        push-to-talk shortcut. Speech recognition runs locally in Chrome
+        via the built-in Web Speech API.</li>
+      <li>Clippy does not use tracking cookies, fingerprinting, ad
+        identifiers, analytics SDKs, or third-party trackers.</li>
+      <li>Clippy does not sell, share, or rent any data, because it
+        never collects any.</li>
+    </ul>
+
+    <h2>Permissions Clippy requests, and why</h2>
+    <ul>
+      <li><code>activeTab</code>, <code>tabs</code>, <code>scripting</code>:
+        needed to capture a screenshot of the current tab and draw the
+        Clippy overlay on it when you press the shortcut.</li>
+      <li><code>storage</code>: needed to remember your API key, license
+        key, and settings between browser restarts.</li>
+      <li>Host permission for <code>api.anthropic.com</code>: needed to
+        send your transcript and screenshot to Claude.</li>
+      <li>Host permission for <code>api.gumroad.com</code>: needed to
+        verify your license key.</li>
+    </ul>
+
+    <h2>Children</h2>
+    <p>
+      Clippy is not directed at children under 13. Clippy doesn't collect
+      personal information from anyone, so by extension it doesn't
+      collect personal information from children.
+    </p>
+
+    <h2>Changes to this policy</h2>
+    <p>
+      If Clippy ever starts doing anything different from what's
+      described here, we'll update this page and bump the "last updated"
+      date. The current version is always at the URL where you're
+      reading this.
+    </p>
+
+    <h2>Contact</h2>
+    <p>
+      Questions? Open an issue on the
+      <a href="https://github.com/jtsilver123/Clippy" target="_blank" rel="noreferrer">
+        Clippy GitHub repository</a>.
+    </p>
+  </body>
+</html>
