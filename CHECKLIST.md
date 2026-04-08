@@ -95,8 +95,17 @@ sure it actually works end-to-end.
 4. Click **Load unpacked** and select the `extension/` folder in this
    repo (not the ZIP — the folder)
 5. Clippy icon should appear in the toolbar. Click it.
-6. Paste an Anthropic API key from
-   <https://console.anthropic.com/settings/keys>. Click **Save API key**.
+6. Pick an **AI provider** in the popup dropdown:
+   - **Google Gemini** is free (1,500 requests/day, no card). Recommended
+     for testing. Get a key at
+     <https://aistudio.google.com/app/apikey>, paste it, click
+     **Save Gemini key**.
+   - **Anthropic Claude** is higher quality but requires API credit on
+     your developer account (separate from any claude.ai subscription —
+     load $5 minimum at
+     <https://console.anthropic.com/settings/billing>). Get a key at
+     <https://console.anthropic.com/settings/keys>, paste it, click
+     **Save Anthropic key**.
 7. Paste the Gumroad license key you got in your receipt email.
    Click **Activate**. You should see "License activated."
 8. Open any HTTPS web page (like <https://en.wikipedia.org/wiki/Main_Page>).

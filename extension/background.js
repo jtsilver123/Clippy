@@ -13,8 +13,9 @@
 // that work lives in the content script where browser APIs like
 // SpeechRecognition and speechSynthesis are available.
 
-import { GUMROAD_PRODUCT_ID } from "./config.js";
+import { GUMROAD_PRODUCT_ID, LLM_PROVIDER_IDS } from "./config.js";
 import { streamClaudeResponse } from "./lib/claude.js";
+import { streamGeminiResponse } from "./lib/gemini.js";
 import { verifyGumroadLicenseKey } from "./lib/gumroad.js";
 import { CLIPPY_VOICE_SYSTEM_PROMPT } from "./lib/prompt.js";
 import { loadClippySettings, saveLicenseVerificationStatus } from "./lib/storage.js";
@@ -128,11 +129,17 @@ async function runClaudeTurn(incomingMessage, sender) {
 
   const clippySettings = await loadClippySettings();
 
-  // Gate: must have a verified license AND an Anthropic API key.
+  // Gate: must have a verified license.
   if (!clippySettings.licenseIsVerified) {
     throw new Error("Clippy is locked. Open the extension and activate your license.");
   }
-  if (!clippySettings.anthropicApiKey) {
+
+  const isUsingGemini = clippySettings.selectedLlmProviderId === LLM_PROVIDER_IDS.GEMINI;
+
+  if (isUsingGemini && !clippySettings.geminiApiKey) {
+    throw new Error("No Google Gemini API key set. Open Clippy and paste your key.");
+  }
+  if (!isUsingGemini && !clippySettings.anthropicApiKey) {
     throw new Error("No Anthropic API key set. Open Clippy and paste your key.");
   }
 
@@ -143,31 +150,49 @@ async function runClaudeTurn(incomingMessage, sender) {
   const abortController = new AbortController();
   inFlightAbortControllersByTabId.set(senderTab.id, abortController);
 
-  // Decorate the user's transcript with the screenshot dimensions so Claude
-  // knows the coordinate space for POINT tags.
+  // Decorate the user's transcript with the screenshot dimensions so the
+  // model knows the coordinate space for POINT tags.
   const screenshotLabelText =
     `[screenshot of current tab, ${incomingMessage.screenshotWidthInPixels}x` +
     `${incomingMessage.screenshotHeightInPixels} pixels]`;
   const userMessageTextWithLabel = `${screenshotLabelText}\n\n${incomingMessage.userTranscriptText}`;
 
-  try {
-    const fullResponseText = await streamClaudeResponse({
-      anthropicApiKey: clippySettings.anthropicApiKey,
-      modelId: clippySettings.selectedModelId,
-      systemPrompt: CLIPPY_VOICE_SYSTEM_PROMPT,
-      conversationHistoryMessages: incomingMessage.conversationHistoryMessages || [],
-      newUserText: userMessageTextWithLabel,
-      screenshotDataUrl: incomingMessage.screenshotDataUrl,
-      abortSignal: abortController.signal,
-      onTextDelta: (textDelta) => {
-        chrome.tabs.sendMessage(senderTab.id, {
-          kind: "clippy.claudeTextDelta",
-          textDelta,
-        }).catch(() => {
-          // tab might have closed mid-stream; swallow
-        });
-      },
+  // Forward streamed deltas back to the content script. Same callback for
+  // both providers.
+  const sendDeltaToContentScript = (textDelta) => {
+    chrome.tabs.sendMessage(senderTab.id, {
+      kind: "clippy.claudeTextDelta",
+      textDelta,
+    }).catch(() => {
+      // tab might have closed mid-stream; swallow
     });
+  };
+
+  try {
+    let fullResponseText;
+    if (isUsingGemini) {
+      fullResponseText = await streamGeminiResponse({
+        geminiApiKey: clippySettings.geminiApiKey,
+        modelId: clippySettings.activeModelId,
+        systemPrompt: CLIPPY_VOICE_SYSTEM_PROMPT,
+        conversationHistoryMessages: incomingMessage.conversationHistoryMessages || [],
+        newUserText: userMessageTextWithLabel,
+        screenshotDataUrl: incomingMessage.screenshotDataUrl,
+        abortSignal: abortController.signal,
+        onTextDelta: sendDeltaToContentScript,
+      });
+    } else {
+      fullResponseText = await streamClaudeResponse({
+        anthropicApiKey: clippySettings.anthropicApiKey,
+        modelId: clippySettings.activeModelId,
+        systemPrompt: CLIPPY_VOICE_SYSTEM_PROMPT,
+        conversationHistoryMessages: incomingMessage.conversationHistoryMessages || [],
+        newUserText: userMessageTextWithLabel,
+        screenshotDataUrl: incomingMessage.screenshotDataUrl,
+        abortSignal: abortController.signal,
+        onTextDelta: sendDeltaToContentScript,
+      });
+    }
 
     return { fullResponseText };
   } finally {

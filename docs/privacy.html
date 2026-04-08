@@ -65,9 +65,11 @@
       the following on your local machine:
     </p>
     <ul>
-      <li>Your Anthropic API key (so you don't have to paste it every time)</li>
+      <li>Your selected AI provider (Anthropic or Google Gemini)</li>
+      <li>Your Anthropic API key, if you saved one</li>
+      <li>Your Google Gemini API key, if you saved one</li>
       <li>Your Gumroad license key</li>
-      <li>Your selected Claude model (Sonnet or Opus)</li>
+      <li>Your selected model for each provider</li>
       <li>Whether your license has been verified</li>
     </ul>
     <p>
@@ -78,19 +80,31 @@
 
     <h2>What Clippy sends over the network</h2>
     <p>
-      Clippy makes network requests to two domains, and only two:
+      Clippy makes network requests to at most three domains, and only
+      three. Which two of the three depends on which AI provider you
+      picked in the popup:
     </p>
     <ul>
       <li>
-        <strong>api.anthropic.com</strong> — when you press the
-        push-to-talk shortcut, Clippy sends the text Claude needs to
-        answer (your spoken transcript), a PNG screenshot of the visible
-        portion of your current tab, and your conversation history on
-        the current page. These requests are authenticated with your own
-        Anthropic API key. Anthropic's privacy policy applies to that
-        traffic. See
+        <strong>api.anthropic.com</strong> — only used if you picked
+        "Anthropic Claude" as your AI provider. When you press the
+        push-to-talk shortcut, Clippy sends your spoken transcript, a
+        PNG screenshot of the visible portion of your current tab, and
+        your conversation history on the current page directly to
+        Anthropic's Messages API. Authenticated with your own Anthropic
+        API key. Anthropic's privacy policy applies to that traffic. See
         <a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noreferrer">
           anthropic.com/legal/privacy</a>.
+      </li>
+      <li>
+        <strong>generativelanguage.googleapis.com</strong> — only used
+        if you picked "Google Gemini" as your AI provider. Clippy sends
+        the same data (spoken transcript, screenshot, conversation
+        history) directly to Google's Gemini API, authenticated with
+        your own Google AI Studio API key. Google's privacy policy
+        applies to that traffic. See
+        <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">
+          policies.google.com/privacy</a>.
       </li>
       <li>
         <strong>api.gumroad.com</strong> — when you click

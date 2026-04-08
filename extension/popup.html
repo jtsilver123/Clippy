@@ -33,14 +33,24 @@
       </header>
 
       <section class="clippy-section">
+        <label class="clippy-label" for="clippy-provider-picker">
+          AI provider
+        </label>
+        <select class="clippy-input" id="clippy-provider-picker">
+          <option value="anthropic">Anthropic Claude</option>
+          <option value="gemini">Google Gemini (free tier)</option>
+        </select>
+      </section>
+
+      <section class="clippy-section" id="clippy-anthropic-section">
         <label class="clippy-label" for="clippy-anthropic-key-input">
           Anthropic API key
         </label>
         <div class="clippy-help">
           Get a key at
           <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">
-            console.anthropic.com
-          </a>. It's stored locally on your computer and only ever sent to Anthropic.
+            console.anthropic.com</a>. Stored locally, only ever sent to Anthropic.
+          Requires API credit (separate from claude.ai subscriptions).
         </div>
         <input
           id="clippy-anthropic-key-input"
@@ -51,7 +61,29 @@
           spellcheck="false"
         />
         <button class="clippy-button clippy-button-secondary" id="clippy-save-anthropic-key-button">
-          Save API key
+          Save Anthropic key
+        </button>
+      </section>
+
+      <section class="clippy-section" id="clippy-gemini-section" hidden>
+        <label class="clippy-label" for="clippy-gemini-key-input">
+          Google Gemini API key
+        </label>
+        <div class="clippy-help">
+          Free for everyone — no card required. Get a key at
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer">
+            aistudio.google.com</a>. Free tier: 1,500 requests/day.
+        </div>
+        <input
+          id="clippy-gemini-key-input"
+          class="clippy-input"
+          type="password"
+          placeholder="AIza…"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button class="clippy-button clippy-button-secondary" id="clippy-save-gemini-key-button">
+          Save Gemini key
         </button>
       </section>
 
@@ -106,7 +138,7 @@
         <button class="clippy-button clippy-button-ghost" id="clippy-reset-button">
           Reset Clippy
         </button>
-        <div class="clippy-version">v1.0.0</div>
+        <div class="clippy-version">v1.1.0</div>
       </footer>
     </div>
 

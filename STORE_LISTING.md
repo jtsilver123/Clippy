@@ -21,10 +21,10 @@ Clippy — AI buddy next to your cursor
 ## Summary
 
 ```
-An AI teacher that sees your tab, talks back, and points at things. Bring your own Anthropic API key.
+An AI teacher that sees your tab, talks back, and points at things. Bring your own Claude or Gemini key.
 ```
 
-(Max 132 characters. This one is 102.)
+(Max 132 characters.)
 
 ---
 
@@ -57,10 +57,14 @@ HOW IT WORKS
 • Clippy answers out loud using Claude and the browser's built-in text-to-speech.
 • If the answer is about something on the page, Clippy flies a blue cursor over to it and highlights it.
 
-BRING YOUR OWN API KEY
-Clippy uses Anthropic's Claude model. Instead of paying a subscription, you paste your own Anthropic API key into Clippy once, and all usage is billed directly to your Anthropic account. Anthropic gives new users free credits to try things out. For everyday use most people spend pennies.
+BRING YOUR OWN API KEY — TWO OPTIONS
+Clippy lets you choose between two AI providers in the popup:
 
-Get an API key at https://console.anthropic.com/settings/keys.
+• Anthropic Claude (Sonnet 4.6 / Opus 4.6) — highest quality. Requires API credit on your Anthropic developer account, separate from any claude.ai subscription. Get a key at https://console.anthropic.com/settings/keys.
+
+• Google Gemini (2.5 Flash / 2.5 Pro) — free for everyone. Free tier of 1,500 requests per day on Gemini Flash with vision support, no card required. Get a key at https://aistudio.google.com/app/apikey.
+
+Either way, your API key lives in your browser, never on a server, and is only sent to the provider you picked.
 
 ONE-TIME $1 UNLOCK
 Clippy itself is a one-time $1 purchase to unlock the extension. Buy a license on Gumroad, paste the key into Clippy's popup, and you're done. No subscriptions. No recurring charges.
@@ -138,7 +142,13 @@ storage is used to persist three things on the user's local machine so they don'
 ### Host permission: api.anthropic.com
 
 ```
-Clippy sends the user's spoken transcript and a PNG screenshot of the current tab directly to the Anthropic Messages API, authenticated with the user's own API key. This is the core function of the extension: to let the user talk to Claude about what they're looking at.
+When the user picks "Anthropic Claude" as their AI provider in Clippy's popup, Clippy sends the user's spoken transcript and a PNG screenshot of the current tab directly to the Anthropic Messages API, authenticated with the user's own API key. This is one of two AI providers the user can choose between.
+```
+
+### Host permission: generativelanguage.googleapis.com
+
+```
+When the user picks "Google Gemini" as their AI provider in Clippy's popup, Clippy sends the user's spoken transcript and a PNG screenshot of the current tab directly to the Google Gemini API, authenticated with the user's own Google AI Studio API key. This is one of two AI providers the user can choose between.
 ```
 
 ### Host permission: api.gumroad.com

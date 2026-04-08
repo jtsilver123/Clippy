@@ -18,9 +18,26 @@ Chrome extension that runs entirely in the user's browser.
 | Screen capture | ScreenCaptureKit (full screen) | `chrome.tabs.captureVisibleTab` (current tab) |
 | Speech-to-text | AssemblyAI (paid, via proxy) | Built-in Web Speech API (free, in-browser) |
 | Text-to-speech | ElevenLabs (paid, via proxy) | Built-in `speechSynthesis` (free, in-browser) |
+| LLM | Claude (via paid Cloudflare Worker proxy) | Claude OR Gemini — user picks, brings their own key |
 | API key storage | Cloudflare Worker proxy | `chrome.storage.local` — bring your own |
 | Backend | Cloudflare Worker | **None.** 100% client-side. |
 | Monetization | Free | $1 one-time Gumroad license |
+
+## Two providers, one extension
+
+Clippy ships with a provider dropdown in the popup that lets users choose
+between two LLMs:
+
+- **Anthropic Claude** (Sonnet 4.6 or Opus 4.6). Best quality. Requires
+  API credit on a Claude developer account, which is separate from any
+  claude.ai subscription.
+- **Google Gemini** (2.5 Flash or 2.5 Pro). Free tier of 1,500 requests
+  per day on Flash with vision, no card required. Get a key in 30
+  seconds at <https://aistudio.google.com/app/apikey>.
+
+Both providers see the same screenshot and respond using the same
+`[POINT:x,y:label]` protocol, so the cursor animation works identically
+either way.
 
 The result: you can ship Clippy to the Chrome Web Store without running
 any servers, without paying for AssemblyAI or ElevenLabs, and users pay
