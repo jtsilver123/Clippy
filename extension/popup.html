@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Clippy</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="clippy-popup">
+      <!-- Soft blue glow blob behind the hero, purely decorative. -->
+      <div class="clippy-bg-glow" aria-hidden="true"></div>
+
+      <!-- ===== Hero ===== -->
+      <header class="clippy-hero">
+        <div class="clippy-hero-cursor" aria-hidden="true">
+          <div class="clippy-hero-cursor-glow"></div>
+          <svg viewBox="0 0 40 40" width="48" height="48">
+            <defs>
+              <linearGradient id="clippy-hero-triangle" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#7eaefb" />
+                <stop offset="100%" stop-color="#1f6fd6" />
+              </linearGradient>
+            </defs>
+            <path
+              d="M 6 4 L 32 20 L 16 22 L 12 34 Z"
+              fill="url(#clippy-hero-triangle)"
+              stroke="#ffffff"
+              stroke-width="1.5"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </div>
+        <h1 class="clippy-hero-title">Clippy</h1>
+        <p class="clippy-hero-tagline">An AI buddy that lives next to your cursor.</p>
+      </header>
+
+      <!-- ===== Status pill + shortcut hint ===== -->
+      <div class="clippy-status-card" id="clippy-status-card">
+        <div class="clippy-status-row">
+          <div class="clippy-status-dot" id="clippy-status-dot"></div>
+          <div class="clippy-status-text" id="clippy-status-text">Loading…</div>
+        </div>
+        <div class="clippy-shortcut-hint">
+          Press
+          <kbd id="clippy-shortcut-label">Ctrl + Shift + E</kbd>
+          on any web page, then talk.
+        </div>
+      </div>
+
+      <!-- ===== Provider cards ===== -->
+      <section class="clippy-section">
+        <div class="clippy-section-label">Choose your AI</div>
+        <div class="clippy-provider-cards">
+          <button
+            type="button"
+            class="clippy-provider-card"
+            id="clippy-provider-card-anthropic"
+            data-provider-id="anthropic"
+          >
+            <div class="clippy-provider-card-icon clippy-provider-icon-anthropic">
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <path
+                  d="M7.4 4 3 20h3.4l1-3.6h5.2l1 3.6H17L12.6 4H7.4zm.7 9.4 1.9-6.8 1.9 6.8H8.1zM21 4h-2.6v16H21V4z"
+                  fill="currentColor"
+                />
+              </svg>
+            </div>
+            <div class="clippy-provider-card-text">
+              <div class="clippy-provider-card-name">Anthropic</div>
+              <div class="clippy-provider-card-tag">Claude · premium</div>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            class="clippy-provider-card"
+            id="clippy-provider-card-gemini"
+            data-provider-id="gemini"
+          >
+            <div class="clippy-provider-card-badge">FREE</div>
+            <div class="clippy-provider-card-icon clippy-provider-icon-gemini">
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <path
+                  d="M12 2c.5 5 4.5 9 9.5 9.5-5 .5-9 4.5-9.5 9.5-.5-5-4.5-9-9.5-9.5 5-.5 9-4.5 9.5-9.5z"
+                  fill="currentColor"
+                />
+              </svg>
+            </div>
+            <div class="clippy-provider-card-text">
+              <div class="clippy-provider-card-name">Gemini</div>
+              <div class="clippy-provider-card-tag">Google · free tier</div>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      <!-- ===== Anthropic key section (shown when Anthropic is picked) ===== -->
+      <section class="clippy-section" id="clippy-anthropic-section">
+        <div class="clippy-section-label">Anthropic API key</div>
+        <div class="clippy-section-help">
+          Get one at
+          <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">
+            console.anthropic.com</a>. Stored on this computer only.
+          Requires API credit, separate from claude.ai.
+        </div>
+        <div class="clippy-input-with-button">
+          <input
+            id="clippy-anthropic-key-input"
+            class="clippy-input"
+            type="password"
+            placeholder="sk-ant-…"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button class="clippy-button clippy-button-secondary" id="clippy-save-anthropic-key-button">
+            Save
+          </button>
+        </div>
+      </section>
+
+      <!-- ===== Gemini key section (shown when Gemini is picked) ===== -->
+      <section class="clippy-section" id="clippy-gemini-section" hidden>
+        <div class="clippy-section-label">Google Gemini API key</div>
+        <div class="clippy-section-help">
+          Free for everyone — no card required. Get a key at
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer">
+            aistudio.google.com</a>. Free tier: 1,500 requests/day.
+        </div>
+        <div class="clippy-input-with-button">
+          <input
+            id="clippy-gemini-key-input"
+            class="clippy-input"
+            type="password"
+            placeholder="AIza…"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button class="clippy-button clippy-button-secondary" id="clippy-save-gemini-key-button">
+            Save
+          </button>
+        </div>
+      </section>
+
+      <!-- ===== License section ===== -->
+      <section class="clippy-section">
+        <div class="clippy-section-label">License key</div>
+        <div class="clippy-section-help" id="clippy-license-help-text">
+          One-time $1 unlock. Buy a license, then paste the key Gumroad sends you.
+        </div>
+        <input
+          id="clippy-license-key-input"
+          class="clippy-input"
+          type="text"
+          placeholder="XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <div class="clippy-button-row">
+          <button class="clippy-button clippy-button-primary" id="clippy-activate-license-button">
+            Activate
+          </button>
+          <a
+            class="clippy-button clippy-button-link"
+            id="clippy-buy-license-link"
+            href="#"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Buy for $1
+          </a>
+        </div>
+      </section>
+
+      <!-- ===== Model picker (subtle, secondary) ===== -->
+      <section class="clippy-section clippy-section-subtle">
+        <details class="clippy-details">
+          <summary class="clippy-details-summary">Advanced</summary>
+          <div class="clippy-section-label" style="margin-top: 14px">Model</div>
+          <select class="clippy-input" id="clippy-model-picker"></select>
+          <div class="clippy-section-help" style="margin-top: 8px">
+            Want a different shortcut? Open
+            <a href="#" id="clippy-shortcuts-link">chrome://extensions/shortcuts</a>.
+          </div>
+        </details>
+      </section>
+
+      <!-- ===== Footer ===== -->
+      <footer class="clippy-footer">
+        <button class="clippy-button clippy-button-ghost" id="clippy-reset-button">
+          Reset
+        </button>
+        <div class="clippy-footer-meta">
+          <a href="https://github.com/jtsilver123/Clippy" target="_blank" rel="noreferrer">
+            github
+          </a>
+          <span class="clippy-footer-sep">·</span>
+          <span class="clippy-version">v1.2.2</span>
+        </div>
+      </footer>
+    </div>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

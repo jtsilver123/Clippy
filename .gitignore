@@ -1,0 +1,11 @@
+.DS_Store
+node_modules/
+*.log
+.env
+.env.local
+dist/
+
+# Allow prebuilt release ZIPs in releases/ so non-coders can download the
+# extension package directly from the GitHub repo without running a build.
+*.zip
+!releases/*.zip
