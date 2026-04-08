@@ -1,0 +1,70 @@
+{
+  "manifest_version": 3,
+  "name": "Clippy — AI Buddy On Your Page",
+  "short_name": "Clippy",
+  "version": "1.0.0",
+  "description": "An AI teacher that lives next to your cursor. It sees your tab, talks back, and points at things. Bring your own Anthropic API key.",
+  "author": "Clippy",
+  "minimum_chrome_version": "116",
+
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+
+  "action": {
+    "default_title": "Clippy",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+
+  "commands": {
+    "toggle-push-to-talk": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Space",
+        "mac": "Command+Shift+Space"
+      },
+      "description": "Hold to talk to Clippy about what's on the page"
+    }
+  },
+
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "tabs"
+  ],
+
+  "host_permissions": [
+    "https://api.anthropic.com/*",
+    "https://api.gumroad.com/*"
+  ],
+
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*.png"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

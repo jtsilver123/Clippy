@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Clippy</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="clippy-popup">
+      <header class="clippy-header">
+        <div class="clippy-logo">
+          <svg width="28" height="28" viewBox="0 0 40 40" aria-hidden="true">
+            <defs>
+              <linearGradient id="clippy-popup-triangle" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#4285f4" />
+                <stop offset="100%" stop-color="#1f6fd6" />
+              </linearGradient>
+            </defs>
+            <path
+              d="M 6 4 L 32 20 L 16 22 L 12 34 Z"
+              fill="url(#clippy-popup-triangle)"
+              stroke="#ffffff"
+              stroke-width="1.5"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </div>
+        <div class="clippy-header-text">
+          <div class="clippy-title">Clippy</div>
+          <div class="clippy-subtitle" id="clippy-status-subtitle">Loading…</div>
+        </div>
+      </header>
+
+      <section class="clippy-section">
+        <label class="clippy-label" for="clippy-anthropic-key-input">
+          Anthropic API key
+        </label>
+        <div class="clippy-help">
+          Get a key at
+          <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">
+            console.anthropic.com
+          </a>. It's stored locally on your computer and only ever sent to Anthropic.
+        </div>
+        <input
+          id="clippy-anthropic-key-input"
+          class="clippy-input"
+          type="password"
+          placeholder="sk-ant-…"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button class="clippy-button clippy-button-secondary" id="clippy-save-anthropic-key-button">
+          Save API key
+        </button>
+      </section>
+
+      <section class="clippy-section">
+        <label class="clippy-label" for="clippy-license-key-input">
+          License key
+        </label>
+        <div class="clippy-help" id="clippy-license-help-text">
+          Clippy is a one-time $1 unlock. Buy a license, then paste the key Gumroad sends you.
+        </div>
+        <input
+          id="clippy-license-key-input"
+          class="clippy-input"
+          type="text"
+          placeholder="XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <div class="clippy-button-row">
+          <button class="clippy-button clippy-button-primary" id="clippy-activate-license-button">
+            Activate
+          </button>
+          <a
+            class="clippy-button clippy-button-link"
+            id="clippy-buy-license-link"
+            href="#"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Buy for $1
+          </a>
+        </div>
+      </section>
+
+      <section class="clippy-section">
+        <label class="clippy-label" for="clippy-model-picker">
+          Model
+        </label>
+        <select class="clippy-input" id="clippy-model-picker"></select>
+      </section>
+
+      <section class="clippy-section">
+        <label class="clippy-label">How to use</label>
+        <div class="clippy-help">
+          On any web page, press
+          <kbd id="clippy-shortcut-label">Ctrl + Shift + Space</kbd>
+          then talk. Clippy sees the page, answers out loud, and points at things.
+        </div>
+      </section>
+
+      <footer class="clippy-footer">
+        <button class="clippy-button clippy-button-ghost" id="clippy-reset-button">
+          Reset Clippy
+        </button>
+        <div class="clippy-version">v1.0.0</div>
+      </footer>
+    </div>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
