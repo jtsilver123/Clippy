@@ -30,17 +30,26 @@ export async function verifyGumroadLicenseKey({ productId, licenseKey }) {
     return { ok: false, reason: "Please paste your license key." };
   }
 
-  const requestBodyForm = new URLSearchParams();
-  requestBodyForm.set("product_id", productId);
-  requestBodyForm.set("license_key", licenseKey.trim());
-  requestBodyForm.set("increment_uses_count", "false");
+  // Build the form body by hand instead of using URLSearchParams. Reason:
+  // Gumroad's verify endpoint compares the product_id as a literal string
+  // and does NOT decode percent-encoded characters in the value. Gumroad
+  // product ids are base64 and almost always end in "==", which
+  // URLSearchParams encodes as "%3D%3D". When that hits the verify
+  // endpoint, Gumroad treats the trailing characters as part of the id,
+  // doesn't find a match, and returns "That license does not exist for
+  // the provided product." Sending the "==" literally — exactly the way
+  // curl does — fixes it.
+  const formBodyText =
+    `product_id=${encodeFormValueWithoutEqualsEscaping(productId)}` +
+    `&license_key=${encodeFormValueWithoutEqualsEscaping(licenseKey.trim())}` +
+    `&increment_uses_count=false`;
 
   let response;
   try {
     response = await fetch(GUMROAD_VERIFY_URL, {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: requestBodyForm.toString(),
+      body: formBodyText,
     });
   } catch (networkError) {
     return { ok: false, reason: `Couldn't reach Gumroad: ${networkError.message}` };
@@ -68,4 +77,13 @@ export async function verifyGumroadLicenseKey({ productId, licenseKey }) {
   }
 
   return { ok: true };
+}
+
+// Percent-encodes a value for an x-www-form-urlencoded body, but leaves
+// "=" characters alone. Gumroad's verify endpoint requires the trailing
+// "==" of base64 product ids to be sent literally. Spaces and other
+// reserved characters still need normal escaping, so we run the value
+// through encodeURIComponent first and then put any "=" back.
+function encodeFormValueWithoutEqualsEscaping(rawValue) {
+  return encodeURIComponent(rawValue).replace(/%3D/g, "=");
 }
