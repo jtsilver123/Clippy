@@ -37,9 +37,13 @@ export async function streamGeminiResponse({
 
   const newUserMessageParts = [];
   if (screenshotDataUrl) {
+    // IMPORTANT: Gemini's REST API expects camelCase field names
+    // (`inlineData`, `mimeType`). If you send snake_case, the field is
+    // silently ignored — the API returns 200 with an empty content block
+    // because it never saw the image.
     newUserMessageParts.push({
-      inline_data: {
-        mime_type: extractMediaTypeFromDataUrl(screenshotDataUrl),
+      inlineData: {
+        mimeType: extractMediaTypeFromDataUrl(screenshotDataUrl),
         data: extractBase64FromDataUrl(screenshotDataUrl),
       },
     });
