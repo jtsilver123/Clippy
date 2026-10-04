@@ -46,7 +46,7 @@ final class IslandPanelController {
     init(model: AppModel) {
         self.model = model
         let screen = NotchGeometry.preferredScreen() ?? NSScreen.screens[0]
-        state = IslandState(geometry: NotchGeometry(screen: screen))
+        state = IslandState(geometry: NotchGeometry(screen: screen, docked: model.isDocked))
 
         let root = IslandView()
             .environmentObject(model)
@@ -59,7 +59,14 @@ final class IslandPanelController {
 
         NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.screensChanged() }
+            .sink { [weak self] _ in self?.refreshGeometry() }
+            .store(in: &cancellables)
+
+        // Step out of (or back into) the notch as other notch apps come and go.
+        model.neighbors.$running.map { _ in () }
+            .merge(with: model.preferences.$islandPlacement.map { _ in () })
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.refreshGeometry() }
             .store(in: &cancellables)
 
         // When the island grows or shrinks under a still cursor, re-evaluate hit-testing.
@@ -86,9 +93,11 @@ final class IslandPanelController {
         panel.orderFrontRegardless()
     }
 
-    private func screensChanged() {
+    private func refreshGeometry() {
         guard let screen = NotchGeometry.preferredScreen() else { return }
-        state.geometry = NotchGeometry(screen: screen)
+        let geometry = NotchGeometry(screen: screen, docked: model.isDocked)
+        guard geometry != state.geometry else { return }
+        state.geometry = geometry
         layout()
     }
 
@@ -99,16 +108,9 @@ final class IslandPanelController {
     }
 
     private func updateHover() {
-        let geometry = state.geometry
-        let size = IslandLayout.hitSize(for: model.presentation, geometry: geometry, rows: model.sessions.count)
-        let rect = NSRect(
-            x: geometry.screenFrame.midX - size.width / 2,
-            y: geometry.screenFrame.maxY - size.height,
-            width: size.width,
-            height: size.height
-        )
-        let inside = size.height > 0 && rect.insetBy(dx: -2, dy: -2).contains(NSEvent.mouseLocation)
+        let rect = IslandLayout.hitRect(for: model.presentation, geometry: state.geometry, rows: model.sessions.count)
+        let inside = rect.height > 0 && rect.insetBy(dx: -2, dy: -2).contains(NSEvent.mouseLocation)
         if panel.ignoresMouseEvents == inside { panel.ignoresMouseEvents = !inside }
-        if model.isHoveringIsland != inside { model.isHoveringIsland = inside }
+        model.setPointerInside(inside)
     }
 }

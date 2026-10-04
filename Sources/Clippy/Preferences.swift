@@ -42,6 +42,23 @@ enum VisualizerPreset: String, CaseIterable, Identifiable {
     }
 }
 
+enum IslandPlacement: String, CaseIterable, Identifiable {
+    /// In the notch, unless another notch app is running; then just below it.
+    case automatic
+    case notch
+    case belowNotch
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .automatic: return "Automatic"
+        case .notch: return "In the notch"
+        case .belowNotch: return "Below the notch"
+        }
+    }
+}
+
 @MainActor
 final class Preferences: ObservableObject {
     private let defaults = UserDefaults.standard
@@ -55,6 +72,8 @@ final class Preferences: ObservableObject {
     @Published var celebrateSeconds: Double { didSet { defaults.set(celebrateSeconds, forKey: Key.celebrateSeconds) } }
     @Published var returnToTerminalOnClick: Bool { didSet { defaults.set(returnToTerminalOnClick, forKey: Key.returnToTerminal) } }
     @Published var watchCodexSessions: Bool { didSet { defaults.set(watchCodexSessions, forKey: Key.watchCodex) } }
+    @Published var watchCoworkSessions: Bool { didSet { defaults.set(watchCoworkSessions, forKey: Key.watchCowork) } }
+    @Published var islandPlacement: IslandPlacement { didSet { defaults.set(islandPlacement.rawValue, forKey: Key.islandPlacement) } }
     @Published var visualizerAutoOpen: Bool { didSet { defaults.set(visualizerAutoOpen, forKey: Key.visualizerAutoOpen) } }
     @Published var visualizerFullScreen: Bool { didSet { defaults.set(visualizerFullScreen, forKey: Key.visualizerFullScreen) } }
     @Published var visualizerAutoClose: Bool { didSet { defaults.set(visualizerAutoClose, forKey: Key.visualizerAutoClose) } }
@@ -75,6 +94,8 @@ final class Preferences: ObservableObject {
         static let celebrateSeconds = "celebrateSeconds"
         static let returnToTerminal = "returnToTerminalOnClick"
         static let watchCodex = "watchCodexSessions"
+        static let watchCowork = "watchCoworkSessions"
+        static let islandPlacement = "islandPlacement"
         static let visualizerAutoOpen = "visualizerAutoOpen"
         static let visualizerFullScreen = "visualizerFullScreen"
         static let visualizerAutoClose = "visualizerAutoClose"
@@ -91,6 +112,8 @@ final class Preferences: ObservableObject {
             Key.celebrateSeconds: 6.0,
             Key.returnToTerminal: true,
             Key.watchCodex: true,
+            Key.watchCowork: true,
+            Key.islandPlacement: IslandPlacement.automatic.rawValue,
             Key.visualizerAutoOpen: true,
             Key.visualizerFullScreen: true,
             Key.visualizerAutoClose: true,
@@ -103,6 +126,8 @@ final class Preferences: ObservableObject {
         celebrateSeconds = defaults.double(forKey: Key.celebrateSeconds)
         returnToTerminalOnClick = defaults.bool(forKey: Key.returnToTerminal)
         watchCodexSessions = defaults.bool(forKey: Key.watchCodex)
+        watchCoworkSessions = defaults.bool(forKey: Key.watchCowork)
+        islandPlacement = IslandPlacement(rawValue: defaults.string(forKey: Key.islandPlacement) ?? "") ?? .automatic
         visualizerAutoOpen = defaults.bool(forKey: Key.visualizerAutoOpen)
         visualizerFullScreen = defaults.bool(forKey: Key.visualizerFullScreen)
         visualizerAutoClose = defaults.bool(forKey: Key.visualizerAutoClose)

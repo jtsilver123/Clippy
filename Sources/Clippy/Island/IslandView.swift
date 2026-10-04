@@ -1,41 +1,55 @@
 import ClippyCore
+import Combine
 import SwiftUI
 
 struct IslandView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var state: IslandState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let presentation = model.presentation
         let geometry = state.geometry
         let size = IslandLayout.size(for: presentation, geometry: geometry, rows: model.sessions.count)
-        let expanded = presentation.isExpanded
+        let lifted = presentation == .compact && model.pointerInside
 
         VStack(spacing: 0) {
+            Color.clear.frame(height: IslandLayout.topInset(geometry))
+
             ZStack(alignment: .top) {
-                NotchShape(
-                    topRadius: IslandLayout.topRadius(for: presentation),
-                    bottomRadius: IslandLayout.bottomRadius(for: presentation)
-                )
-                .fill(Color.black)
+                IslandBackground(presentation: presentation, docked: geometry.docked, size: size, attention: needsAttention)
 
                 content(for: presentation, geometry: geometry)
-                    .padding(.horizontal, IslandLayout.topRadius(for: presentation))
+                    .padding(.horizontal, geometry.docked ? IslandLayout.topRadius(for: presentation) : 0)
                     .frame(width: size.width, height: size.height, alignment: .top)
-                    .clipped()
+                    .clipShape(Rectangle())
             }
             .frame(width: size.width, height: size.height)
-            .opacity(!geometry.hasNotch && presentation == .hidden ? 0 : 1)
-            .shadow(color: .black.opacity(expanded ? 0.45 : 0), radius: 14, y: 6)
+            .opacity(size.height == 0 ? 0 : 1)
+            .scaleEffect(lifted && !reduceMotion ? 1.035 : 1, anchor: .top)
             .contentShape(Rectangle())
             .onTapGesture { model.islandTapped() }
 
             Spacer(minLength: 0)
         }
         .frame(width: IslandLayout.canvasSize.width, height: IslandLayout.canvasSize.height, alignment: .top)
-        .animation(.spring(response: 0.42, dampingFraction: 0.8), value: presentation)
-        .animation(.spring(response: 0.42, dampingFraction: 0.8), value: model.sessions.count)
+        .animation(animation(for: presentation), value: presentation)
+        .animation(animation(for: presentation), value: geometry)
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: model.sessions.count)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: lifted)
         .preferredColorScheme(.dark)
+    }
+
+    /// Bouncy on the way out, snappy on the way back in, like the iPhone.
+    private func animation(for presentation: IslandPresentation) -> Animation {
+        if reduceMotion { return .easeInOut(duration: 0.2) }
+        return presentation.isExpanded
+            ? .spring(response: 0.46, dampingFraction: 0.72)
+            : .spring(response: 0.34, dampingFraction: 0.9)
+    }
+
+    private var needsAttention: Bool {
+        model.active.contains { if case .needsInput = $0.phase { return true } else { return false } }
     }
 
     @ViewBuilder
@@ -45,16 +59,16 @@ struct IslandView: View {
             Color.clear
         case .compact:
             CompactIsland(sessions: model.active, geometry: geometry)
-                .transition(.opacity)
+                .transition(.blurFade)
         case let .spotlight(spotlight):
             SpotlightCard(spotlight: spotlight)
-                .padding(.top, geometry.notchSize.height)
-                .transition(.opacity.combined(with: .scale(scale: 0.92, anchor: .top)))
+                .padding(.top, IslandLayout.headroom(geometry))
+                .transition(.blurFade)
                 .id(spotlight.session.id + "\(spotlight.kind)")
         case .list:
             SessionList(sessions: model.sessions)
-                .padding(.top, geometry.notchSize.height + 4)
-                .transition(.opacity.combined(with: .scale(scale: 0.92, anchor: .top)))
+                .padding(.top, IslandLayout.headroom(geometry) + 6)
+                .transition(.blurFade)
         }
     }
 }
@@ -68,119 +82,222 @@ extension IslandPresentation {
     }
 }
 
+// MARK: Background
+
+/// The black silhouette: notch-shaped when docked, a floating capsule/card when sharing the
+/// notch with another app. Breathes amber while an agent waits on you.
+private struct IslandBackground: View {
+    let presentation: IslandPresentation
+    let docked: Bool
+    let size: CGSize
+    let attention: Bool
+    @State private var breathe = false
+
+    var body: some View {
+        ZStack {
+            if docked {
+                let shape = NotchShape(
+                    topRadius: IslandLayout.topRadius(for: presentation),
+                    bottomRadius: IslandLayout.bottomRadius(for: presentation)
+                )
+                shape.fill(Color.black)
+                shape.stroke(Color.yellow.opacity(attention ? (breathe ? 0.75 : 0.2) : 0), lineWidth: 1.5)
+            } else {
+                let shape = RoundedRectangle(cornerRadius: presentation == .compact ? size.height / 2 : 24, style: .continuous)
+                shape.fill(Color.black)
+                shape.stroke(Color.white.opacity(0.09), lineWidth: 1)
+                shape.stroke(Color.yellow.opacity(attention ? (breathe ? 0.75 : 0.2) : 0), lineWidth: 1.5)
+            }
+        }
+        .shadow(color: .black.opacity(presentation.isExpanded || !docked ? 0.45 : 0), radius: 16, y: 7)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { breathe = true }
+        }
+    }
+}
+
 // MARK: Compact: flanks the notch like a Live Activity
 
 private struct CompactIsland: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let sessions: [AgentSession]
     let geometry: NotchGeometry
+    @State private var beat = 0
+    @State private var glow = false
 
     var body: some View {
         let lead = sessions.first
         let waiting = sessions.contains { if case .needsInput = $0.phase { return true } else { return false } }
+        let agents = Array(Set(sessions.map(\.agent))).sorted { $0.rawValue < $1.rawValue }
 
-        HStack(spacing: 0) {
-            HStack(spacing: 5) {
-                if waiting {
-                    Image(systemName: "hand.raised.fill")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.yellow)
-                        .symbolEffectPulse()
-                } else {
-                    CookingFlame(tint: lead?.agent.tint ?? .orange, size: 13)
-                }
-                ForEach(Array(Set(sessions.map(\.agent))).sorted { $0.rawValue < $1.rawValue }, id: \.self) { agent in
-                    Image(systemName: agent.symbol)
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(agent.tint)
-                }
-            }
-            .frame(width: IslandLayout.compactSideWidth, alignment: .center)
-
-            Group {
-                if geometry.hasNotch {
-                    Color.clear
-                } else {
-                    Text(waiting ? "Needs your OK" : "Cooking")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.85))
-                }
-            }
-            .frame(width: geometry.notchSize.width)
-
-            HStack(spacing: 4) {
-                if let start = lead?.turnStartedAt {
-                    TimelineView(.periodic(from: .now, by: 1)) { context in
-                        Text(Format.clock(context.date.timeIntervalSince(start)))
-                            .font(.system(size: 11, weight: .semibold, design: .rounded).monospacedDigit())
-                            .foregroundStyle(.white.opacity(0.9))
+        ZStack(alignment: .bottom) {
+            HStack(spacing: 0) {
+                // Leading: what's cooking.
+                HStack(spacing: 6) {
+                    ZStack {
+                        Circle()
+                            .fill((lead?.agent.tint ?? .orange).opacity(glow ? 0.45 : 0))
+                            .frame(width: 22, height: 22)
+                            .blur(radius: 5)
+                        if waiting {
+                            AttentionHand(size: 12)
+                        } else {
+                            CookingFlame(tint: lead?.agent.tint ?? .orange, size: 13)
+                                .scaleEffect(glow && !reduceMotion ? 1.18 : 1, anchor: .bottom)
+                        }
+                    }
+                    HStack(spacing: -3) {
+                        ForEach(agents, id: \.self) { agent in
+                            AgentBadge(agent: agent, size: 15)
+                                .background(Circle().fill(.black).padding(-1))
+                        }
                     }
                 }
-                if sessions.count > 1 {
-                    Text("\(sessions.count)")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 4)
-                        .background(Capsule().fill(.white.opacity(0.85)))
+                .frame(width: IslandLayout.compactSideWidth, alignment: .center)
+
+                // Center: hidden behind the notch when docked; a label when floating.
+                Group {
+                    if geometry.docked && geometry.hasNotch {
+                        Color.clear
+                    } else {
+                        Text(waiting ? "Needs you" : (lead?.projectName ?? "Cooking"))
+                            .font(.system(size: 11.5, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.88))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
                 }
+                .frame(maxWidth: .infinity)
+
+                // Trailing: how long it's been on the stove.
+                HStack(spacing: 5) {
+                    if let start = lead?.turnStartedAt {
+                        TimelineView(.periodic(from: .now, by: 1)) { context in
+                            let text = Format.clock(context.date.timeIntervalSince(start))
+                            Text(text)
+                                .font(.system(size: 11.5, weight: .semibold, design: .rounded).monospacedDigit())
+                                .foregroundStyle(.white.opacity(0.92))
+                                .numericTransition()
+                                .animation(.spring(response: 0.25, dampingFraction: 0.9), value: text)
+                        }
+                    }
+                    if sessions.count > 1 {
+                        Text("\(sessions.count)")
+                            .font(.system(size: 9, weight: .heavy, design: .rounded))
+                            .foregroundStyle(.black)
+                            .frame(minWidth: 14, minHeight: 14)
+                            .background(Circle().fill(.white.opacity(0.9)))
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                }
+                .frame(width: IslandLayout.compactSideWidth, alignment: .center)
             }
-            .frame(width: IslandLayout.compactSideWidth, alignment: .center)
+            .frame(height: geometry.docked ? geometry.notchSize.height : IslandLayout.floatingCompactHeight)
+
+            if !waiting && !reduceMotion {
+                CookingShimmer(tint: lead?.agent.tint ?? .orange)
+                    .padding(.horizontal, geometry.docked ? 12 : 18)
+                    .padding(.bottom, 1)
+            }
         }
-        .frame(height: geometry.notchSize.height)
+        // Every tool call is a heartbeat.
+        .onReceive(model.pulses.filter { $0.kind == .beat || $0.kind == .start }) { _ in
+            withAnimation(.easeOut(duration: 0.12)) { glow = true }
+            withAnimation(.easeIn(duration: 0.5).delay(0.12)) { glow = false }
+        }
     }
 }
 
 // MARK: Spotlight: the "it's done" moment
 
 private struct SpotlightCard: View {
+    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var prefs: Preferences
     let spotlight: Spotlight
-    @State private var popped = false
 
     var body: some View {
         let session = spotlight.session
-        HStack(alignment: .center, spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(accent.opacity(0.18))
-                    .frame(width: 48, height: 48)
-                    .scaleEffect(popped ? 1 : 0.4)
-                Image(systemName: spotlight.kind == .finished ? "checkmark" : "hand.raised.fill")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(accent)
-                    .scaleEffect(popped ? 1 : 0.2)
-                    .rotationEffect(.degrees(popped ? 0 : -40))
-            }
+        let hovering = model.pointerInside
 
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Image(systemName: session.agent.symbol)
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(session.agent.tint)
-                    Text(title(for: session))
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white)
+        ZStack(alignment: .topTrailing) {
+            HStack(alignment: .center, spacing: 14) {
+                Group {
+                    if spotlight.kind == .finished {
+                        SuccessMark(tint: .green, size: 48)
+                    } else {
+                        ZStack {
+                            Circle().fill(Color.yellow.opacity(0.18))
+                            AttentionHand(size: 20)
+                        }
+                        .frame(width: 48, height: 48)
+                    }
                 }
-                Text(subtitle(for: session))
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.55))
-                if let detail = detail(for: session) {
-                    Text(detail)
-                        .font(.system(size: 11))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Image(systemName: session.agent.symbol)
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(session.agent.tint)
+                        Text(title(for: session))
+                            .font(.system(size: 13.5, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                    }
+                    .staggered(0)
+
+                    Text(subtitle(for: session))
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.55))
+                        .lineLimit(1)
+                        .staggered(1)
+
+                    if let detail = detail(for: session) {
+                        Text(detail)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.white.opacity(0.82))
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .staggered(2)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 22)
+            .padding(.top, 12)
+            .padding(.bottom, 14)
+
+            // Hover affordances: where a click goes, and a way out.
+            HStack(spacing: 6) {
+                if let bundleID = session.hostAppBundleID, prefs.returnToTerminalOnClick {
+                    HostAppChip(bundleID: bundleID)
+                }
+                Button {
+                    model.clearSpotlight()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 9, weight: .bold))
                         .foregroundStyle(.white.opacity(0.8))
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(width: 20, height: 20)
+                        .background(Circle().fill(.white.opacity(0.12)))
                 }
+                .buttonStyle(.plain)
             }
-            Spacer(minLength: 0)
+            .padding(.top, 8)
+            .padding(.trailing, 14)
+            .opacity(hovering ? 1 : 0)
+            .offset(y: hovering ? 0 : -4)
+            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: hovering)
         }
-        .padding(.horizontal, 22)
-        .padding(.vertical, 12)
-        .onAppear {
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.55).delay(0.08)) { popped = true }
+        .overlay(alignment: .bottom) {
+            if spotlight.kind == .finished {
+                CountdownBar(seconds: prefs.celebrateSeconds, tint: session.agent.tint)
+                    .padding(.horizontal, 30)
+                    .padding(.bottom, 6)
+                    .opacity(hovering ? 0 : 1)
+                    .animation(.easeOut(duration: 0.2), value: hovering)
+            }
         }
-    }
-
-    private var accent: Color {
-        spotlight.kind == .finished ? .green : .yellow
     }
 
     private func title(for session: AgentSession) -> String {
@@ -215,15 +332,47 @@ private struct SessionList: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             VStack(spacing: 0) {
-                ForEach(sessions.prefix(IslandLayout.maxRows)) { session in
-                    SessionRow(session: session, now: context.date)
-                        .frame(height: IslandLayout.rowHeight)
-                        .contentShape(Rectangle())
-                        .onTapGesture { model.focusHost(of: session) }
+                ForEach(Array(sessions.prefix(IslandLayout.maxRows).enumerated()), id: \.element.id) { index, session in
+                    HoverRow {
+                        SessionRow(session: session, now: context.date)
+                    } action: {
+                        model.focusHost(of: session)
+                    }
+                    .frame(height: IslandLayout.rowHeight)
+                    .staggered(index)
                 }
             }
-            .padding(.horizontal, 18)
+            .padding(.horizontal, 10)
         }
+    }
+}
+
+/// A row that lights up and shows a chevron under the pointer.
+struct HoverRow<Content: View>: View {
+    var dark = true
+    @ViewBuilder let content: () -> Content
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            content()
+            Image(systemName: "arrow.up.right")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(dark ? Color.white.opacity(0.5) : Color.secondary)
+                .opacity(hovering ? 1 : 0)
+                .offset(x: hovering ? 0 : -4)
+        }
+        .padding(.horizontal, 8)
+        .frame(maxHeight: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(dark ? Color.white.opacity(hovering ? 0.08 : 0) : Color.primary.opacity(hovering ? 0.06 : 0))
+        )
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
+        .onTapGesture(perform: action)
+        .animation(.easeOut(duration: 0.15), value: hovering)
     }
 }
 
@@ -244,6 +393,7 @@ struct SessionRow: View {
                     .font(.system(size: 10.5, weight: .medium).monospacedDigit())
                     .foregroundStyle(dark ? Color.white.opacity(0.55) : Color.secondary)
                     .lineLimit(1)
+                    .numericTransition()
             }
             Spacer(minLength: 0)
             switch session.phase {
@@ -257,29 +407,5 @@ struct SessionRow: View {
                 EmptyView()
             }
         }
-    }
-}
-
-private extension View {
-    /// SF Symbol pulse on macOS 14+, a plain opacity pulse before that.
-    @ViewBuilder
-    func symbolEffectPulse() -> some View {
-        if #available(macOS 14, *) {
-            self.symbolEffect(.pulse, options: .repeating)
-        } else {
-            self.modifier(OpacityPulse())
-        }
-    }
-}
-
-private struct OpacityPulse: ViewModifier {
-    @State private var dim = false
-
-    func body(content: Content) -> some View {
-        content
-            .opacity(dim ? 0.4 : 1)
-            .onAppear {
-                withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) { dim = true }
-            }
     }
 }

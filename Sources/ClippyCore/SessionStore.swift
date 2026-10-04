@@ -28,6 +28,7 @@ public struct AgentSession: Identifiable, Equatable, Sendable {
     public var lastTool: String?
     public var transcriptPath: String?
     public var hostAppBundleID: String?
+    public var title: String?
 
     public init(agent: Agent, sessionID: String, cwd: String? = nil, lastActivityAt: Date) {
         self.agent = agent
@@ -37,6 +38,7 @@ public struct AgentSession: Identifiable, Equatable, Sendable {
     }
 
     public var projectName: String {
+        if let title, !title.isEmpty { return title }
         guard let cwd, !cwd.isEmpty else { return agent.displayName }
         let name = URL(fileURLWithPath: cwd).lastPathComponent
         return name.isEmpty || name == "/" ? cwd : name
@@ -96,6 +98,7 @@ public final class SessionStore {
         if let cwd = event.cwd, !cwd.isEmpty { s.cwd = cwd }
         if let path = event.transcriptPath { s.transcriptPath = path }
         if let host = event.hostAppBundleID, !host.isEmpty { s.hostAppBundleID = host }
+        if let title = event.title, !title.isEmpty { s.title = title }
 
         var changes: [StoreChange] = []
 

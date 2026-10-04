@@ -1,3 +1,4 @@
+import AppKit
 import ClippyCore
 import SwiftUI
 
@@ -5,7 +6,10 @@ struct VisualizerView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var prefs: Preferences
     @State private var engine = VisualizerEngine()
-    @State private var hintsVisible = true
+    @State private var chromeVisible = true
+    @State private var lastMouseMove = Date()
+    @State private var toast: VisualizerPreset?
+    @State private var toastTask: Task<Void, Never>?
 
     var body: some View {
         ZStack {
@@ -19,22 +23,38 @@ struct VisualizerView: View {
             VStack {
                 HStack {
                     Spacer()
-                    Text("←/→ switch look · F full screen · esc close")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.5))
-                        .opacity(hintsVisible ? 1 : 0)
+                    HStack(spacing: 10) {
+                        KeyHint(keys: "← →", label: "look")
+                        KeyHint(keys: "F", label: "full screen")
+                        KeyHint(keys: "esc", label: "close")
+                    }
+                    .opacity(chromeVisible ? 1 : 0)
                 }
                 Spacer()
                 HStack(alignment: .bottom) {
                     NowCookingCard(sessions: model.sessions)
+                        .opacity(chromeVisible || model.hasActive ? 1 : 0.35)
                     Spacer()
                     Text(prefs.visualizerPreset.title.uppercased())
                         .font(.system(size: 11, weight: .semibold))
                         .tracking(2)
                         .foregroundStyle(.white.opacity(0.35))
+                        .opacity(chromeVisible ? 1 : 0)
                 }
             }
             .padding(28)
+
+            if let toast {
+                Text(toast.title)
+                    .font(.system(size: 30, weight: .heavy, design: .rounded))
+                    .tracking(1)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 26)
+                    .padding(.vertical, 12)
+                    .background(Capsule().fill(.black.opacity(0.35)))
+                    .transition(.blurFade)
+                    .id(toast)
+            }
 
             if let spotlight = model.spotlight, spotlight.kind == .finished {
                 FinaleOverlay(session: spotlight.session)
@@ -44,22 +64,68 @@ struct VisualizerView: View {
         .background(Color.black)
         .preferredColorScheme(.dark)
         .animation(.easeInOut(duration: 0.5), value: model.spotlight)
+        .animation(.easeInOut(duration: 0.6), value: chromeVisible)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: toast)
+        .onContinuousHover { phase in
+            guard case .active = phase else { return }
+            lastMouseMove = Date()
+            if !chromeVisible { chromeVisible = true }
+        }
         .onReceive(model.pulses) { engine.handle($0) }
+        .task {
+            // Like a screensaver: after a few still seconds, fade the controls and hide the cursor.
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                if chromeVisible, Date().timeIntervalSince(lastMouseMove) > 3 {
+                    chromeVisible = false
+                    NSCursor.setHiddenUntilMouseMoves(true)
+                }
+            }
+        }
         .onAppear {
             engine.preset = prefs.visualizerPreset
             syncPalette()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
-                withAnimation(.easeOut(duration: 1)) { hintsVisible = false }
-            }
         }
-        .onChange(of: prefs.visualizerPreset) { preset in engine.preset = preset }
+        .onChange(of: prefs.visualizerPreset) { preset in
+            engine.transition(to: preset)
+            showToast(preset)
+        }
         .onChange(of: model.sessions) { _ in syncPalette() }
+    }
+
+    private func showToast(_ preset: VisualizerPreset) {
+        toastTask?.cancel()
+        toast = preset
+        toastTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            guard !Task.isCancelled else { return }
+            toast = nil
+        }
     }
 
     private func syncPalette() {
         let active = model.active
         engine.isCooking = !active.isEmpty
         engine.palette = Array(Set(active.map(\.agent))).sorted { $0.rawValue < $1.rawValue }.map(\.hue)
+    }
+}
+
+private struct KeyHint: View {
+    let keys: String
+    let label: String
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Text(keys)
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.85))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(RoundedRectangle(cornerRadius: 4).stroke(.white.opacity(0.3), lineWidth: 1))
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.white.opacity(0.5))
+        }
     }
 }
 

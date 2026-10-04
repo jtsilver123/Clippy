@@ -3,11 +3,13 @@ import Foundation
 public enum Agent: String, Codable, Sendable, CaseIterable {
     case claude
     case codex
+    case cowork
 
     public var displayName: String {
         switch self {
         case .claude: return "Claude Code"
         case .codex: return "Codex"
+        case .cowork: return "Cowork"
         }
     }
 }
@@ -36,6 +38,8 @@ public struct AgentEvent: Equatable, Sendable {
     public var transcriptPath: String?
     /// Bundle id of the app the agent runs in (Terminal, iTerm, VS Code…), used to jump back to it.
     public var hostAppBundleID: String?
+    /// A human name for the session when the agent has one (Cowork task titles).
+    public var title: String?
     public var date: Date
 
     public init(
@@ -45,6 +49,7 @@ public struct AgentEvent: Equatable, Sendable {
         kind: AgentEventKind,
         transcriptPath: String? = nil,
         hostAppBundleID: String? = nil,
+        title: String? = nil,
         date: Date = Date()
     ) {
         self.agent = agent
@@ -53,6 +58,7 @@ public struct AgentEvent: Equatable, Sendable {
         self.kind = kind
         self.transcriptPath = transcriptPath
         self.hostAppBundleID = hostAppBundleID
+        self.title = title
         self.date = date
     }
 }
@@ -150,6 +156,41 @@ public enum EventParser {
             default:
                 return nil
             }
+        default:
+            return nil
+        }
+    }
+
+    /// Parses one line of a Cowork session's audit log
+    /// (~/Library/Application Support/Claude/local-agent-mode-sessions/…/local_<id>/audit.jsonl).
+    /// The lines mirror the Claude Agent SDK's message stream: `user` prompts, `assistant`
+    /// turns, and a `result` at the end of every turn. Not a public contract, so stay tolerant.
+    public static func parseCoworkAuditLine(_ line: Data) -> RolloutLine? {
+        guard let obj = jsonObject(line) else { return nil }
+        if obj["isSynthetic"] as? Bool == true || obj["isMeta"] as? Bool == true { return nil }
+        let message = obj["message"] as? [String: Any]
+        let blocks = message?["content"] as? [[String: Any]] ?? []
+        let blockTypes = Set(blocks.compactMap { $0["type"] as? String })
+
+        switch obj["type"] as? String {
+        case "system":
+            guard obj["subtype"] as? String == "init" else { return nil }
+            return .meta(id: nil, cwd: obj["cwd"] as? String)
+        case "user":
+            guard message != nil else { return nil }
+            // Tool results and subagent traffic come back as "user" lines too.
+            if blockTypes.contains("tool_result") || obj["parent_tool_use_id"] is String {
+                return .event(.activity(tool: nil))
+            }
+            return .event(.promptSubmitted)
+        case "assistant":
+            let tool = blocks.first { $0["type"] as? String == "tool_use" }?["name"] as? String
+            return .event(.activity(tool: tool))
+        case "tool_use_summary":
+            return .event(.activity(tool: nil))
+        case "result":
+            if obj["parent_tool_use_id"] is String { return .event(.activity(tool: nil)) }
+            return .event(.turnComplete(summary: obj["result"] as? String))
         default:
             return nil
         }

@@ -31,23 +31,32 @@ struct MenuView: View {
                 .buttonStyle(.link)
             }
 
+            if !model.isDocked, let neighbor = model.neighbors.running.first {
+                Label("Sharing the notch with \(neighbor): Clippy floats just below it.", systemImage: "rectangle.topthird.inset.filled")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Divider()
 
             if model.sessions.isEmpty {
-                Text("Nothing on the stove. Send a prompt to Claude Code or Codex and it shows up here.")
+                Text("Nothing on the stove. Send a prompt to Claude Code, Codex or Cowork and it shows up here.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
-                    VStack(spacing: 6) {
+                    VStack(spacing: 2) {
                         ForEach(model.sessions.prefix(6)) { session in
-                            SessionRow(session: session, now: context.date, dark: false)
-                                .contentShape(Rectangle())
-                                .onTapGesture { model.focusHost(of: session) }
-                                .contextMenu {
-                                    Button("Dismiss") { model.dismiss(session) }
-                                }
+                            HoverRow(dark: false) {
+                                SessionRow(session: session, now: context.date, dark: false)
+                            } action: {
+                                model.focusHost(of: session)
+                            }
+                            .frame(height: 40)
+                            .contextMenu {
+                                Button("Dismiss") { model.dismiss(session) }
+                            }
                         }
                     }
                 }
@@ -69,6 +78,7 @@ struct MenuView: View {
                 Menu {
                     Button("Claude Code") { model.simulate(.claude) }
                     Button("Codex") { model.simulate(.codex) }
+                    Button("Cowork") { model.simulate(.cowork) }
                 } label: {
                     Label("Try it", systemImage: "play.circle")
                 }

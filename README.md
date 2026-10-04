@@ -1,8 +1,8 @@
 # Clippy
 
 A Mac menu bar app that turns your notch into a Dynamic Island for coding agents.
-Fire off a prompt in **Claude Code** or **Codex**, go do something else, and the
-island tells you when it's done cooking.
+Fire off a prompt in **Claude Code**, **Codex** or **Cowork**, go do something
+else, and the island tells you when it's done cooking.
 
 ## Download
 
@@ -33,9 +33,16 @@ your terminal. There are three looks (← / → to switch, F for full screen, es
 - **Ribbons**: mirrored Lissajous light trails
 - **Warp**: a starfield that speeds up the harder the agent works
 
-Colors follow the agent: warm orange for Claude Code, blue for Codex.
+Colors follow the agent: warm orange for Claude Code, blue for Codex, violet for Cowork.
 
 Macs without a notch get a matching pill hanging from the menu bar.
+
+### Plays nice with other notch apps
+
+If another app is already using the notch (NotchNook, boring.notch, Alcove, MediaMate,
+NotchDrop…), Clippy steps aside and floats just below the notch instead of fighting it
+for space and hover. When that app quits, Clippy moves back into the notch.
+Settings → Island → Placement lets you pin it to either spot.
 
 ## How it knows
 
@@ -51,6 +58,13 @@ Clippy runs a tiny HTTP server on `127.0.0.1:47823` (loopback only).
   connect Codex's `notify` hook in `~/.codex/config.toml` as a backup signal. If
   you already have a `notify` program, Clippy leaves it alone and shows the line
   to add to your script.
+- **Cowork**: works with no setup. Cowork runs inside Claude Desktop's VM and
+  [doesn't fire Claude Code hooks](https://github.com/anthropics/claude-code/issues/63360),
+  so Clippy reads each session's `audit.jsonl` under
+  `~/Library/Application Support/Claude/local-agent-mode-sessions/`. A `user` line
+  starts a turn, `assistant` lines are activity, and the `result` line marks it done.
+  The session's title (from the `local_<id>.json` next to it) becomes the name on
+  the island, and clicking jumps to Claude Desktop.
 
 Clippy saves the original as `settings.json.clippy-backup` / `config.toml.clippy-backup`
 before its first edit, tags everything it adds with `clippy-hook`, and **Remove**
@@ -81,7 +95,7 @@ Sources/ClippyCore/   Pure Foundation, unit-tested on Linux too
   SessionStore.swift        the cooking state machine (idle → cooking ⇄ needs input → done)
   HTTP.swift                minimal HTTP parsing and routing
   HookInstaller.swift       safe, idempotent edits to the Claude and Codex configs
-  CodexRolloutTailer.swift  zero-config Codex detection
+  SessionLogTailer.swift    zero-config Codex and Cowork detection from their session logs
   ClaudeTranscript.swift    pulls the final message out of a transcript
 Sources/Clippy/       The macOS app (SwiftUI + AppKit)
   AppModel.swift            wires events to the island, sounds and visualizer

@@ -6,6 +6,7 @@ extension Agent {
         switch self {
         case .claude: return Color(red: 0.85, green: 0.47, blue: 0.34)
         case .codex: return Color(red: 0.40, green: 0.74, blue: 1.0)
+        case .cowork: return Color(red: 0.70, green: 0.58, blue: 1.0)
         }
     }
 
@@ -14,6 +15,7 @@ extension Agent {
         switch self {
         case .claude: return 0.045
         case .codex: return 0.57
+        case .cowork: return 0.72
         }
     }
 
@@ -21,6 +23,7 @@ extension Agent {
         switch self {
         case .claude: return "asterisk"
         case .codex: return "chevron.left.forwardslash.chevron.right"
+        case .cowork: return "folder.fill"
         }
     }
 }

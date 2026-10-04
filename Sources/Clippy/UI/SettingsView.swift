@@ -39,6 +39,20 @@ struct SettingsView: View {
     @State private var claudeConnected = false
     @State private var codexStatus: Integrations.CodexStatus = .notConnected
     @State private var errorMessage: String?
+    @State private var coworkFound = false
+
+    private var placementNote: String {
+        let neighbor = model.neighbors.running.first
+        switch prefs.islandPlacement {
+        case .automatic:
+            if let neighbor { return "\(neighbor) is using the notch, so Clippy floats just below it. When \(neighbor) quits, Clippy moves back in." }
+            return "Clippy lives in the notch. If another notch app (NotchNook, boring.notch, Alcove…) starts, Clippy moves just below it."
+        case .notch:
+            return neighbor.map { "Heads up: \($0) also draws in the notch, so the two may overlap." } ?? "Always in the notch."
+        case .belowNotch:
+            return "Always floats just below the notch, leaving the notch to other apps."
+        }
+    }
 
     var body: some View {
         Form {
@@ -63,6 +77,23 @@ struct SettingsView: View {
                 )
 
                 Toggle("Watch Codex sessions (no setup needed)", isOn: $prefs.watchCodexSessions)
+
+                HStack(alignment: .top, spacing: 10) {
+                    AgentBadge(agent: .cowork, size: 26)
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Text("Cowork").font(.body.weight(.medium))
+                            Text(coworkFound ? "Found Claude Desktop" : "No Cowork sessions yet")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(coworkFound ? Color.green : Color.secondary)
+                        }
+                        Text("Reads Cowork's session logs in Claude Desktop. Nothing to install.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle("Watch Cowork", isOn: $prefs.watchCoworkSessions).labelsHidden()
+                }
 
                 connectionRow(
                     title: "Codex notify hook",
@@ -95,6 +126,12 @@ struct SettingsView: View {
             }
 
             Section {
+                Picker("Placement", selection: $prefs.islandPlacement) {
+                    ForEach(IslandPlacement.allCases) { Text($0.title).tag($0) }
+                }
+                Text(placementNote)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Toggle("Play a sound when done", isOn: $prefs.playSound)
                 Picker("Sound", selection: $prefs.soundName) {
                     ForEach(Preferences.sounds, id: \.self) { Text($0).tag($0) }
@@ -122,8 +159,12 @@ struct SettingsView: View {
                 }
                 HStack {
                     Button("Open visualizer") { model.openVisualizer() }
-                    Button("Simulate a Claude turn") { model.simulate(.claude) }
-                    Button("Simulate a Codex turn") { model.simulate(.codex) }
+                    Menu("Simulate a turn") {
+                        Button("Claude Code") { model.simulate(.claude) }
+                        Button("Codex") { model.simulate(.codex) }
+                        Button("Cowork") { model.simulate(.cowork) }
+                    }
+                    .fixedSize()
                 }
             } header: {
                 Text("Visualizer")
@@ -178,6 +219,7 @@ struct SettingsView: View {
 
     private func refresh() {
         claudeConnected = Integrations.isClaudeInstalled
+        coworkFound = FileManager.default.fileExists(atPath: CoworkSessionSource.defaultRoot.path)
         codexStatus = Integrations.codexStatus
     }
 }

@@ -9,6 +9,10 @@ import SwiftUI
 /// SwiftUI view tree never re-renders per frame.
 final class VisualizerEngine {
     var preset: VisualizerPreset = .magnetosphere
+    /// The look being faded out after a switch.
+    private var previousPreset: VisualizerPreset?
+    private var transitionStart: Double = 0
+    private static let transitionDuration = 0.9
     /// Hues of the agents that are cooking right now. Empty means idle drift.
     var palette: [Double] = []
     var isCooking = false
@@ -81,6 +85,24 @@ final class VisualizerEngine {
 
     // MARK: Input
 
+    /// Switches looks with a crossfade.
+    func transition(to newPreset: VisualizerPreset) {
+        guard newPreset != preset else { return }
+        previousPreset = preset
+        transitionStart = now
+        preset = newPreset
+    }
+
+    private var transitionProgress: Double {
+        guard previousPreset != nil else { return 1 }
+        let t = min(1, max(0, (now - transitionStart) / Self.transitionDuration))
+        return t * t * (3 - 2 * t)
+    }
+
+    private func isShowing(_ candidate: VisualizerPreset) -> Bool {
+        candidate == preset || (candidate == previousPreset && transitionProgress < 1)
+    }
+
     func handle(_ pulse: Pulse) {
         switch pulse.kind {
         case .start: kick(0.9, hue: pulse.agent.hue)
@@ -124,12 +146,28 @@ final class VisualizerEngine {
         let frame = Frame(size: size)
         drawBackground(&ctx, frame)
         ctx.blendMode = .plusLighter
-        switch preset {
+        let progress = transitionProgress
+        if let previous = previousPreset {
+            if progress < 1 {
+                var fading = ctx
+                fading.opacity = 1 - progress
+                draw(previous, &fading, frame)
+            } else {
+                previousPreset = nil
+            }
+        }
+        ctx.opacity = previousPreset == nil ? 1 : progress
+        draw(preset, &ctx, frame)
+        ctx.opacity = 1
+        drawBursts(&ctx, frame)
+    }
+
+    private func draw(_ which: VisualizerPreset, _ ctx: inout GraphicsContext, _ frame: Frame) {
+        switch which {
         case .magnetosphere: drawMagnetosphere(&ctx, frame)
         case .ribbons: drawRibbons(&ctx, frame)
         case .warp: drawWarp(&ctx, frame)
         }
-        drawBursts(&ctx, frame)
     }
 
     private struct Frame {
@@ -172,8 +210,8 @@ final class VisualizerEngine {
 
         bursts.removeAll { now - $0.birth > 2.6 }
 
-        if preset == .magnetosphere { stepParticles(dt, aspect: Double(aspect)) }
-        if preset == .warp { stepStars(dt) }
+        if isShowing(.magnetosphere) { stepParticles(dt, aspect: Double(aspect)) }
+        if isShowing(.warp) { stepStars(dt) }
     }
 
     // MARK: Background

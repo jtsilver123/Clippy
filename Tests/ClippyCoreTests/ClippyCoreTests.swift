@@ -193,7 +193,7 @@ final class TailerAndFormatTests: XCTestCase {
         let file = dir.appendingPathComponent("rollout-2025-01-01T00-00-00-5973b6c0-94b8-487b-a530-2aeb6098ae0e.jsonl")
         try Data((#"{"type":"session_meta","payload":{"id":"S1","cwd":"/w/proj"}}"# + "\n" + #"{"type":"event_msg","payload":{"type":"task_complete"}}"# + "\n").utf8).write(to: file)
 
-        let tailer = CodexRolloutTailer(root: root)
+        let tailer = SessionLogTailer(source: CodexRolloutSource(root: root))
         var events: [AgentEvent] = []
         tailer.onEvent = { events.append($0) }
         tailer.poll(now: now)
@@ -212,8 +212,67 @@ final class TailerAndFormatTests: XCTestCase {
         XCTAssertEqual(events.first?.cwd, "/w/proj")
     }
 
+    func testCoworkTailer() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("clippy-cowork-\(UUID().uuidString)")
+        defer { try? fm.removeItem(at: root) }
+        let space = root.appendingPathComponent("acct-1/space-1")
+        let oldSession = space.appendingPathComponent("local_old")
+        try fm.createDirectory(at: oldSession, withIntermediateDirectories: true)
+        let oldAudit = oldSession.appendingPathComponent("audit.jsonl")
+        // A previously finished turn that must not re-announce itself.
+        try Data((#"{"type":"user","message":{"role":"user","content":"hi"}}"# + "\n" + #"{"type":"result","result":"old"}"# + "\n").utf8).write(to: oldAudit)
+
+        let tailer = SessionLogTailer(source: CoworkSessionSource(root: root))
+        tailer.rediscoverInterval = 0
+        var events: [AgentEvent] = []
+        tailer.onEvent = { events.append($0) }
+        let t0 = Date()
+        tailer.poll(now: t0)
+        XCTAssertTrue(events.isEmpty)
+
+        // A brand-new session appears with its manifest.
+        let newSession = space.appendingPathComponent("local_new")
+        try fm.createDirectory(at: newSession, withIntermediateDirectories: true)
+        try Data(#"{"sessionId":"local_new","title":"Sort my receipts","userSelectedFolders":["/Users/me/Receipts"]}"#.utf8)
+            .write(to: space.appendingPathComponent("local_new.json"))
+        let lines = [
+            #"{"type":"system","subtype":"init","cwd":"/sessions/brave-owl"}"#,
+            #"{"type":"user","message":{"role":"user","content":[{"type":"text","text":"sort these"}]}}"#,
+            #"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{}}]}}"#,
+            #"{"type":"user","message":{"content":[{"type":"tool_result","content":"ok"}]}}"#,
+            #"{"type":"result","subtype":"success","result":"Sorted 41 receipts.","num_turns":3}"#,
+        ]
+        try Data((lines.joined(separator: "\n") + "\n").utf8).write(to: newSession.appendingPathComponent("audit.jsonl"))
+        tailer.poll(now: t0.addingTimeInterval(1))
+
+        XCTAssertEqual(events.map(\.kind), [.promptSubmitted, .activity(tool: "Bash"), .activity(tool: nil), .turnComplete(summary: "Sorted 41 receipts.")])
+        let first = try XCTUnwrap(events.first)
+        XCTAssertEqual(first.agent, .cowork)
+        XCTAssertEqual(first.sessionID, "local_new")
+        XCTAssertEqual(first.title, "Sort my receipts")
+        XCTAssertEqual(first.cwd, "/Users/me/Receipts")
+        XCTAssertEqual(first.hostAppBundleID, CoworkSessionSource.desktopBundleID)
+
+        // The old session resumes: only the new lines count.
+        events.removeAll()
+        let handle = try FileHandle(forWritingTo: oldAudit)
+        handle.seekToEndOfFile()
+        handle.write(Data((#"{"type":"user","message":{"content":"again"}}"# + "\n").utf8))
+        try handle.close()
+        tailer.poll(now: t0.addingTimeInterval(2))
+        XCTAssertEqual(events.map(\.kind), [.promptSubmitted])
+    }
+
+    func testCoworkStoreUsesTitle() {
+        let store = SessionStore()
+        let changes = store.apply(AgentEvent(agent: .cowork, sessionID: "local_x", cwd: "/Users/me/Receipts", kind: .promptSubmitted, title: "Sort my receipts"))
+        guard case let .started(s) = changes.first else { return XCTFail() }
+        XCTAssertEqual(s.projectName, "Sort my receipts")
+    }
+
     func testSessionIDFromFileName() {
-        XCTAssertEqual(CodexRolloutTailer.sessionID(fromFileName: "rollout-2025-05-07T17-24-21-5973B6C0-94b8-487b-a530-2aeb6098ae0e.jsonl"), "5973b6c0-94b8-487b-a530-2aeb6098ae0e")
+        XCTAssertEqual(CodexRolloutSource.sessionID(fromFileName: "rollout-2025-05-07T17-24-21-5973B6C0-94b8-487b-a530-2aeb6098ae0e.jsonl"), "5973b6c0-94b8-487b-a530-2aeb6098ae0e")
     }
 
     func testTranscriptAndFormat() {

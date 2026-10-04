@@ -39,24 +39,48 @@ final class AppModel: ObservableObject {
     static let shared = AppModel()
 
     let preferences = Preferences()
+    let neighbors = NotchNeighbors()
     let pulses = PassthroughSubject<Pulse, Never>()
 
     @Published private(set) var sessions: [AgentSession] = []
     @Published private(set) var spotlight: Spotlight?
-    @Published var isHoveringIsland = false
+    /// The pointer is over the island right now (drives hit-testing and hover polish).
+    @Published private(set) var pointerInside = false
+    /// The pointer has rested on the island long enough to expand it. Lags `pointerInside` a
+    /// little so passing the cursor through the menu bar doesn't flash the list open.
+    @Published private(set) var isHoveringIsland = false
     @Published private(set) var serverError: String?
 
     private let store = SessionStore()
     private let server = EventServer()
-    private let tailer = CodexRolloutTailer(root: CodexRolloutTailer.defaultRoot)
+    private let codexTailer = SessionLogTailer(source: CodexRolloutSource())
+    private let coworkTailer = SessionLogTailer(source: CoworkSessionSource())
+    private var hoverTask: Task<Void, Never>?
     private var loops: [Task<Void, Never>] = []
     private var spotlightTask: Task<Void, Never>?
     private var island: IslandPanelController?
     private var settingsWindow: SettingsWindowController?
     private(set) lazy var visualizer = VisualizerWindowController(model: self)
+    private var forwarding = Set<AnyCancellable>()
+
+    private init() {
+        // Placement depends on other notch apps; let views observing the model hear about it.
+        neighbors.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &forwarding)
+    }
 
     var active: [AgentSession] { sessions.filter { $0.phase.isActive } }
     var hasActive: Bool { sessions.contains { $0.phase.isActive } }
+
+    /// Whether the island sits in the notch, or floats below it to share with another notch app.
+    var isDocked: Bool {
+        switch preferences.islandPlacement {
+        case .notch: return true
+        case .belowNotch: return false
+        case .automatic: return neighbors.running.isEmpty
+        }
+    }
 
     var presentation: IslandPresentation {
         if let spotlight { return .spotlight(spotlight) }
@@ -79,13 +103,11 @@ final class AppModel: ObservableObject {
             serverError = "Couldn't listen on port \(HookInstaller.defaultPort): \(error.localizedDescription)"
         }
 
-        tailer.onEvent = { [weak self] event in self?.handle(event) }
-        if preferences.watchCodexSessions { tailer.poll() }
-
-        loops.append(every(seconds: 1) { [weak self] in
-            guard let self, self.preferences.watchCodexSessions else { return }
-            self.tailer.poll()
-        })
+        for tailer in [codexTailer, coworkTailer] {
+            tailer.onEvent = { [weak self] event in self?.handle(event) }
+        }
+        pollLogs()
+        loops.append(every(seconds: 1) { [weak self] in self?.pollLogs() })
         loops.append(every(seconds: 30) { [weak self] in
             guard let self else { return }
             for change in self.store.prune() { self.react(to: change) }
@@ -98,6 +120,22 @@ final class AppModel: ObservableObject {
         if !preferences.hasOnboarded {
             preferences.hasOnboarded = true
             if !Integrations.isClaudeInstalled { openSettings() }
+        }
+    }
+
+    private func pollLogs() {
+        if preferences.watchCodexSessions { codexTailer.poll() }
+        if preferences.watchCoworkSessions { coworkTailer.poll() }
+    }
+
+    func setPointerInside(_ inside: Bool) {
+        guard inside != pointerInside else { return }
+        pointerInside = inside
+        hoverTask?.cancel()
+        hoverTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: inside ? 140_000_000 : 260_000_000)
+            guard let self, !Task.isCancelled, self.pointerInside == inside else { return }
+            self.isHoveringIsland = inside
         }
     }
 
@@ -146,6 +184,7 @@ final class AppModel: ObservableObject {
             if worthCelebrating {
                 show(Spotlight(kind: .finished, session: session), autoHideAfter: preferences.celebrateSeconds)
                 playSound(named: preferences.soundName)
+                NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
             } else if spotlight?.session.id == session.id {
                 clearSpotlight()
             }
@@ -185,7 +224,7 @@ final class AppModel: ObservableObject {
         spotlightTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
             // Don't yank the card out from under the cursor.
-            while let self, self.isHoveringIsland, !Task.isCancelled {
+            while let self, self.pointerInside, !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 500_000_000)
             }
             guard !Task.isCancelled else { return }
@@ -247,11 +286,28 @@ final class AppModel: ObservableObject {
     /// Fakes a whole turn so people can see what happens without waiting on a real agent.
     func simulate(_ agent: Agent, seconds: Double = 9) {
         let id = "demo-\(UUID().uuidString.prefix(6))"
-        let cwd = agent == .claude ? "/Users/demo/pancake-stack" : "/Users/demo/omelette-api"
-        let tools = agent == .claude ? ["Read", "Edit", "Bash", "Grep", "Write"] : ["shell", "apply_patch", "shell"]
+        let cwd: String
+        let tools: [String]
+        let summary: String
+        var title: String?
+        switch agent {
+        case .claude:
+            cwd = "/Users/demo/pancake-stack"
+            tools = ["Read", "Edit", "Bash", "Grep", "Write"]
+            summary = "Stacked the pancakes: refactored the batter service and all 42 tests pass."
+        case .codex:
+            cwd = "/Users/demo/omelette-api"
+            tools = ["shell", "apply_patch", "shell"]
+            summary = "Omelette API is plated. Added the /flip endpoint with tests."
+        case .cowork:
+            cwd = "/Users/demo/Receipts"
+            tools = ["Read", "Bash", "Write"]
+            summary = "Sorted 41 receipts into folders by month and made a summary spreadsheet."
+            title = "Sort my receipts"
+        }
         let host = Bundle.main.bundleIdentifier
         func send(_ kind: AgentEventKind) {
-            handle(AgentEvent(agent: agent, sessionID: id, cwd: cwd, kind: kind, hostAppBundleID: host))
+            handle(AgentEvent(agent: agent, sessionID: id, cwd: cwd, kind: kind, hostAppBundleID: host, title: title))
         }
         Task { @MainActor in
             send(.promptSubmitted)
@@ -260,9 +316,7 @@ final class AppModel: ObservableObject {
                 try? await Task.sleep(nanoseconds: 350_000_000)
                 if Double.random(in: 0...1) < 0.55 { send(.activity(tool: tools.randomElement())) }
             }
-            send(.turnComplete(summary: agent == .claude
-                ? "Stacked the pancakes: refactored the batter service and all 42 tests pass."
-                : "Omelette API is plated. Added the /flip endpoint with tests."))
+            send(.turnComplete(summary: summary))
         }
     }
 }
