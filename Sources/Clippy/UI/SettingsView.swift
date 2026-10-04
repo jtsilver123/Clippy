@@ -1,5 +1,5 @@
 import AppKit
-import CookedCore
+import ClippyCore
 import SwiftUI
 
 @MainActor
@@ -19,7 +19,7 @@ final class SettingsWindowController {
                 backing: .buffered,
                 defer: false
             )
-            window.title = "Cooked Settings"
+            window.title = "Clippy Settings"
             window.isReleasedWhenClosed = false
             window.contentView = NSHostingView(rootView: SettingsView()
                 .environmentObject(model)
@@ -75,7 +75,7 @@ struct SettingsView: View {
 
                 if case let .conflict(existing) = codexStatus {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Your Codex config already has a notify program, and Codex only allows one. Cooked left it alone; session watching still works. To use both, call this from your script:")
+                        Text("Your Codex config already has a notify program, and Codex only allows one. Clippy left it alone; session watching still works. To use both, call this from your script:")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Text(existing)

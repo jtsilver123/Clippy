@@ -1,4 +1,4 @@
-import CookedCore
+import ClippyCore
 import Foundation
 import Network
 
@@ -8,7 +8,7 @@ final class EventServer {
     var onFailure: (@MainActor (String) -> Void)?
 
     private var listener: NWListener?
-    private let queue = DispatchQueue(label: "cooked.event-server")
+    private let queue = DispatchQueue(label: "clippy.event-server")
 
     enum ServerError: Error {
         case badPort
@@ -27,7 +27,7 @@ final class EventServer {
         listener.stateUpdateHandler = { [weak self] state in
             guard case let .failed(error) = state, let handler = self?.onFailure else { return }
             Task { @MainActor in
-                handler("Event server stopped: \(error.localizedDescription). Is another copy of Cooked running?")
+                handler("Event server stopped: \(error.localizedDescription). Is another copy of Clippy running?")
             }
         }
         listener.start(queue: queue)
@@ -56,7 +56,7 @@ final class EventServer {
             switch HTTPParser.parse(buffer) {
             case let .complete(request):
                 if request.path == "/health" {
-                    self.respond(on: connection, status: "200 OK", body: "cooked")
+                    self.respond(on: connection, status: "200 OK", body: "clippy")
                     return
                 }
                 self.respond(on: connection, status: "200 OK", body: "ok")

@@ -1,4 +1,4 @@
-import CookedCore
+import ClippyCore
 import SwiftUI
 
 extension Agent {

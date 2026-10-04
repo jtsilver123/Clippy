@@ -1,4 +1,4 @@
-import CookedCore
+import ClippyCore
 import Foundation
 
 /// Reads and writes the agents' config files. The pure edit logic lives in `HookInstaller`.
@@ -54,13 +54,13 @@ enum Integrations {
         try write(Data(updated.utf8), to: codexConfigURL, backingUp: Data(current.utf8))
     }
 
-    /// Keeps the very first original around as `<file>.cooked-backup` before touching anything.
+    /// Keeps the very first original around as `<file>.clippy-backup` before touching anything.
     private static func write(_ data: Data, to link: URL, backingUp original: Data?) throws {
         let fm = FileManager.default
         // Write through symlinks (dotfile repos) instead of replacing them.
         let url = link.resolvingSymlinksInPath()
         try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let backup = url.appendingPathExtension("cooked-backup")
+        let backup = url.appendingPathExtension("clippy-backup")
         if let original, !fm.fileExists(atPath: backup.path) {
             try original.write(to: backup, options: .atomic)
         }

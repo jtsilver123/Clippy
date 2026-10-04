@@ -1,4 +1,4 @@
-import CookedCore
+import ClippyCore
 import SwiftUI
 
 /// Draws the iTunes-style visualizer into a SwiftUI `Canvas`. There's no audio to react to, so

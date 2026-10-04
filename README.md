@@ -1,8 +1,17 @@
-# Cooked
+# Clippy
 
 A Mac menu bar app that turns your notch into a Dynamic Island for coding agents.
 Fire off a prompt in **Claude Code** or **Codex**, go do something else, and the
 island tells you when it's done cooking.
+
+## Download
+
+**[Download Clippy.zip](https://github.com/jtsilver123/Clippy/releases/download/latest-build/Clippy.zip)**
+(macOS 13+, Apple Silicon and Intel)
+
+Unzip and drag **Clippy.app** to Applications. It isn't notarized yet, so the first
+time, right-click it → **Open** → **Open**. If macOS still refuses, go to System Settings →
+Privacy & Security and click **Open Anyway**. Clippy shows up as a flame in the menu bar.
 
 ## Two modes
 
@@ -30,21 +39,21 @@ Macs without a notch get a matching pill hanging from the menu bar.
 
 ## How it knows
 
-Cooked runs a tiny HTTP server on `127.0.0.1:47823` (loopback only).
+Clippy runs a tiny HTTP server on `127.0.0.1:47823` (loopback only).
 
 - **Claude Code**: Settings → Connect adds [hooks](https://docs.claude.com/en/docs/claude-code/hooks)
   to `~/.claude/settings.json` for `UserPromptSubmit`, `PreToolUse`, `PostToolUse`,
   `Notification`, `Stop`, `SessionStart` and `SessionEnd`. Each one is a
-  `curl … || true` that does nothing when Cooked isn't running. Start new Claude
+  `curl … || true` that does nothing when Clippy isn't running. Start new Claude
   Code sessions after connecting.
-- **Codex**: works with no setup. Cooked tails Codex's session logs in
+- **Codex**: works with no setup. Clippy tails Codex's session logs in
   `~/.codex/sessions/` to see turns start, make progress and finish. You can also
   connect Codex's `notify` hook in `~/.codex/config.toml` as a backup signal. If
-  you already have a `notify` program, Cooked leaves it alone and shows the line
+  you already have a `notify` program, Clippy leaves it alone and shows the line
   to add to your script.
 
-Cooked saves the original as `settings.json.cooked-backup` / `config.toml.cooked-backup`
-before its first edit, tags everything it adds with `cooked-hook`, and **Remove**
+Clippy saves the original as `settings.json.clippy-backup` / `config.toml.clippy-backup`
+before its first edit, tags everything it adds with `clippy-hook`, and **Remove**
 takes all of it back out.
 
 ## Build and run
@@ -52,8 +61,8 @@ takes all of it back out.
 Requires macOS 13+ and Xcode 15+ (or the matching Swift toolchain).
 
 ```sh
-swift run Cooked            # run from source
-./scripts/bundle.sh         # build/Cooked.app (ad-hoc signed) + build/Cooked.zip
+swift run Clippy            # run from source
+./scripts/bundle.sh         # build/Clippy.app (universal, ad-hoc signed) + build/Clippy.zip
 swift test                  # core tests (also run on Linux)
 ```
 
@@ -67,14 +76,14 @@ To try it without an agent, open the menu bar flame → **Try it**, or run:
 ## Layout
 
 ```
-Sources/CookedCore/   Pure Foundation, unit-tested on Linux too
+Sources/ClippyCore/   Pure Foundation, unit-tested on Linux too
   AgentEvent.swift          hook / notify / rollout payload parsing
   SessionStore.swift        the cooking state machine (idle → cooking ⇄ needs input → done)
   HTTP.swift                minimal HTTP parsing and routing
   HookInstaller.swift       safe, idempotent edits to the Claude and Codex configs
   CodexRolloutTailer.swift  zero-config Codex detection
   ClaudeTranscript.swift    pulls the final message out of a transcript
-Sources/Cooked/       The macOS app (SwiftUI + AppKit)
+Sources/Clippy/       The macOS app (SwiftUI + AppKit)
   AppModel.swift            wires events to the island, sounds and visualizer
   EventServer.swift         Network.framework listener
   Island/                   notch geometry, morphing notch shape, panel and views

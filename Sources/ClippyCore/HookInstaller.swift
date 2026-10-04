@@ -1,9 +1,9 @@
 import Foundation
 
 /// Edits ~/.claude/settings.json and ~/.codex/config.toml so the agents report to the app.
-/// Every entry Cooked adds carries `marker`, which is how it finds (and removes) its own.
+/// Every entry Clippy adds carries `marker`, which is how it finds (and removes) its own.
 public enum HookInstaller {
-    public static let marker = "cooked-hook"
+    public static let marker = "clippy-hook"
     public static let defaultPort = 47823
 
     public static let claudeEvents = [
@@ -124,7 +124,7 @@ public enum HookInstaller {
             return existing.contains(marker) ? .alreadyInstalled : .conflict(existing: existing)
         }
         // Top-level keys must come before the first [table], so prepend.
-        let header = "# Added by Cooked: ping the Dynamic Island when a turn finishes.\n\(codexNotifyLine(port: port))\n"
+        let header = "# Added by Clippy: ping the Dynamic Island when a turn finishes.\n\(codexNotifyLine(port: port))\n"
         return .installed(toml.isEmpty ? header : header + "\n" + toml)
     }
 
@@ -132,7 +132,7 @@ public enum HookInstaller {
         var out: [Substring] = []
         var dropNextBlank = false
         for line in toml.split(separator: "\n", omittingEmptySubsequences: false) {
-            if line.hasPrefix("# Added by Cooked") { continue }
+            if line.hasPrefix("# Added by Clippy") { continue }
             if line.range(of: #"^\s*notify\s*="#, options: .regularExpression) != nil, line.contains(marker) {
                 dropNextBlank = true
                 continue

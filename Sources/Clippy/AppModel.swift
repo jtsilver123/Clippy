@@ -1,6 +1,6 @@
 import AppKit
 import Combine
-import CookedCore
+import ClippyCore
 import SwiftUI
 
 /// What the island shows when it's expanded on its own (not because of hover).

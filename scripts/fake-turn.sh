@@ -19,7 +19,7 @@ if [[ "$AGENT" == "claude" ]]; then
   done
   claude "{\"hook_event_name\":\"Stop\",\"session_id\":\"$SID\",\"cwd\":\"$CWD\",\"last_assistant_message\":\"All done: the fake turn finished.\"}"
 else
-  # Codex has no start hook (Cooked watches its session files for that), so this only shows the finish.
+  # Codex has no start hook (Clippy watches its session files for that), so this only shows the finish.
   sleep "$SECONDS_TOTAL"
   curl -s -m 1 --noproxy '*' -X POST --data-binary "{\"type\":\"agent-turn-complete\",\"thread-id\":\"$SID\",\"cwd\":\"$CWD\",\"last-assistant-message\":\"Fake Codex turn complete.\"}" "$URL/codex" >/dev/null
 fi

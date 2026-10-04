@@ -1,5 +1,5 @@
 import XCTest
-@testable import CookedCore
+@testable import ClippyCore
 
 final class EventParserTests: XCTestCase {
     func testClaudeHookEvents() throws {
@@ -182,7 +182,7 @@ final class HookInstallerTests: XCTestCase {
 
 final class TailerAndFormatTests: XCTestCase {
     func testTailerEmitsOnlyNewLines() throws {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent("cooked-\(UUID().uuidString)")
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("clippy-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: root) }
         let now = Date()
         var cal = Calendar(identifier: .gregorian)

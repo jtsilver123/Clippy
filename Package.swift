@@ -4,18 +4,18 @@ import PackageDescription
 var targets: [Target] = [
     // Pure Foundation: event parsing, session state machine, hook installers,
     // Codex rollout tailing. Builds and tests on Linux too.
-    .target(name: "CookedCore"),
-    .testTarget(name: "CookedCoreTests", dependencies: ["CookedCore"]),
+    .target(name: "ClippyCore"),
+    .testTarget(name: "ClippyCoreTests", dependencies: ["ClippyCore"]),
 ]
-var products: [Product] = [.library(name: "CookedCore", targets: ["CookedCore"])]
+var products: [Product] = [.library(name: "ClippyCore", targets: ["ClippyCore"])]
 
 #if os(macOS)
-targets.append(.executableTarget(name: "Cooked", dependencies: ["CookedCore"]))
-products.append(.executable(name: "Cooked", targets: ["Cooked"]))
+targets.append(.executableTarget(name: "Clippy", dependencies: ["ClippyCore"]))
+products.append(.executable(name: "Clippy", targets: ["Clippy"]))
 #endif
 
 let package = Package(
-    name: "Cooked",
+    name: "Clippy",
     platforms: [.macOS(.v13)],
     products: products,
     targets: targets

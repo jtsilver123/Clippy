@@ -1,5 +1,5 @@
 import AppKit
-import CookedCore
+import ClippyCore
 import SwiftUI
 
 final class VisualizerWindow: NSWindow {
@@ -62,7 +62,7 @@ final class VisualizerWindowController: NSObject, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "Cooked"
+        window.title = "Clippy"
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.backgroundColor = .black

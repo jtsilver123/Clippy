@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 @main
-struct CookedApp: App {
+struct ClippyApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @ObservedObject private var model = AppModel.shared
 

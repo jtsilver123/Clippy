@@ -1,4 +1,4 @@
-import CookedCore
+import ClippyCore
 import SwiftUI
 
 /// The menu bar popover.
@@ -86,7 +86,7 @@ struct MenuView: View {
                 } label: {
                     Image(systemName: "power")
                 }
-                .help("Quit Cooked")
+                .help("Quit Clippy")
             }
             .buttonStyle(.borderless)
         }
@@ -101,7 +101,7 @@ struct MenuView: View {
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(model.hasActive ? Color.orange : Color.secondary)
             VStack(alignment: .leading, spacing: 1) {
-                Text("Cooked").font(.headline)
+                Text("Clippy").font(.headline)
                 Text(statusLine).font(.caption).foregroundStyle(.secondary)
             }
         }
