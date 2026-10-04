@@ -6,12 +6,23 @@ else, and the island tells you when it's done cooking.
 
 ## Download
 
-**[Download Clippy.zip](https://github.com/jtsilver123/Clippy/releases/download/latest-build/Clippy.zip)**
-(macOS 13+, Apple Silicon and Intel)
+<img src="Resources/AppIcon.png" width="128" align="right" alt="Clippy icon">
 
-Unzip and drag **Clippy.app** to Applications. It isn't notarized yet, so the first
-time, right-click it → **Open** → **Open**. If macOS still refuses, go to System Settings →
-Privacy & Security and click **Open Anyway**. Clippy shows up as a flame in the menu bar.
+Paste this into Terminal (macOS 13+, Apple Silicon and Intel):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/jtsilver123/Clippy/main/scripts/install.sh | bash
+```
+
+It installs Clippy into Applications and opens it. Run it again any time to update.
+Look for the flame in your menu bar.
+
+Prefer a regular download? Grab
+**[Clippy.zip](https://github.com/jtsilver123/Clippy/releases/download/latest-build/Clippy.zip)**,
+unzip it and drag Clippy.app to Applications. Clippy isn't notarized by Apple yet, so macOS
+will say it "could not verify" it: click **Done**, then go to System Settings → Privacy &
+Security, scroll down and click **Open Anyway**. (The Terminal install skips this, because
+files downloaded with `curl` aren't flagged as coming from the internet.)
 
 ## Two modes
 
