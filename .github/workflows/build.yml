@@ -1,0 +1,41 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  core-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test ClippyCore
+        run: swift test
+
+  app-macos:
+    runs-on: macos-15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test
+        run: swift test
+      - name: Bundle
+        run: ./scripts/bundle.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clippy.app
+          path: build/Clippy.zip
+      # Every push to a branch refreshes a "latest build" prerelease with a stable download URL:
+      # https://github.com/<owner>/<repo>/releases/download/latest-build/Clippy.zip
+      - name: Publish latest build
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest-build --cleanup-tag --yes || true
+          gh release create latest-build build/Clippy.zip \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "Clippy (latest build)" \
+            --notes "Built from ${GITHUB_REF_NAME} @ ${GITHUB_SHA::7}. Unzip, drag Clippy.app to Applications, then right-click → Open the first time (it isn't notarized yet)."
